@@ -1,6 +1,6 @@
 module marrow-of-empire
 
-go 1.26.0
+go 1.26.5
 
 require kaijuengine.com v0.0.0
 

@@ -1,4 +1,5 @@
-// Typed component stores for Story EF-002 (Component Model).
+// Typed component stores for Story EF-002 (Component Model) and EF-005
+// (Serialization).
 //
 // Architecture: ADR-0001 (Entity Architecture), TR-ef-002. Each component
 // type T gets its own store — map[GameEntityID]T — allocated lazily on the
@@ -8,12 +9,50 @@
 // reflection, no interface boxing. The string-keyed interface methods
 // (GetComponentData, SetComponentData, RemoveComponentData) and
 // QueryEntities go through the erased componentStore view instead.
+//
+// Serialization (EF-005, ADR-0002): every typed store implements EntityData.
+// Component types are registered with pod at init time (components.go), and
+// storeFactories lets Deserialize materialize a store from a save blob
+// before any component of its type has been written.
 package entity
 
 import (
+	"bytes"
 	"fmt"
+	"log/slog"
 	"reflect"
+
+	"kaijuengine.com/engine/encoding/pod"
 )
+
+// EntityData is the serialization contract implemented by every typed
+// component store (control manifest: "all component stores implement
+// EntityData, registered via pod.Register" — ADR-0001, ADR-0002). This is
+// the game-layer contract adapted to Kaiju's actual pod API: each store
+// pod-encodes its full map[GameEntityID]T contents as a standalone blob,
+// and EntityStoreImpl.Serialize collects one blob per non-empty store into
+// the save snapshot; Deserialize distributes them back. It is unrelated to
+// the engine's engine.EntityData binding interface.
+//
+// The component type must be registered with pod (components.go init does
+// this for every component type). Serialize never calls Encode on an empty
+// store: empty stores are skipped and contribute zero bytes (AC-3).
+//
+// Example usage:
+//
+//	// Inside EntityStoreImpl.Serialize:
+//	blob, err := st.Encode()
+//	if err != nil { /* handle */ }
+type EntityData interface {
+	// Encode pod-encodes the store's full contents — the complete
+	// map[GameEntityID]T of the component type.
+	Encode() ([]byte, error)
+
+	// Decode replaces the store's contents with the pod-decoded data. The
+	// blob must be an Encode output for the same component type; a
+	// mismatched type fails with an error during field-name resolution.
+	Decode(data []byte) error
+}
 
 // typedStore[T] is the typed per-component store: map[GameEntityID]T
 // (ADR-0001: "map[GameEntityID]ComponentType per component").
@@ -30,14 +69,22 @@ type typedStore[T any] struct {
 }
 
 // componentStore is the type-erased view of a typed store. Only the
-// string-keyed interface methods and QueryEntities use it; the typed hot
-// path never boxes through it.
+// string-keyed interface methods, QueryEntities, and the serialization pass
+// (EntityData) use it; the typed hot path never boxes through it.
 type componentStore interface {
+	EntityData
 	contains(id GameEntityID) bool
 	get(id GameEntityID) (any, bool)
 	setErased(id GameEntityID, value any) bool
 	take(id GameEntityID) bool
 	removeEntity(id GameEntityID)
+	// entityCount returns the number of entities with a component of this
+	// type. Serialization skips empty stores (AC-3: zero bytes).
+	entityCount() int
+	// register wires the store into the owner's registries (typed key,
+	// name key, registration order). storeFor calls it on first use;
+	// Deserialize calls it for stores materialized from a save blob.
+	register()
 }
 
 // newTypedStore creates a typed store and resolves its type name once.
@@ -47,6 +94,41 @@ func newTypedStore[T any](owner *EntityStoreImpl) *typedStore[T] {
 		name:   typeName[T](),
 		values: make(map[GameEntityID]T),
 	}
+}
+
+// Encode implements EntityData: pod-encodes the store's full contents.
+func (st *typedStore[T]) Encode() ([]byte, error) {
+	var buf bytes.Buffer
+	if err := pod.NewEncoder(&buf).Encode(st.values); err != nil {
+		return nil, fmt.Errorf("entity: failed to encode %s store: %w", st.name, err)
+	}
+	return buf.Bytes(), nil
+}
+
+// Decode implements EntityData: replaces the store's contents with the
+// pod-decoded map. A decode failure leaves the map partially replaced; the
+// caller (Deserialize) treats that as a corrupt blob.
+func (st *typedStore[T]) Decode(data []byte) error {
+	if err := pod.NewDecoder(bytes.NewReader(data)).Decode(&st.values); err != nil {
+		return fmt.Errorf("entity: failed to decode %s store: %w", st.name, err)
+	}
+	return nil
+}
+
+// entityCount returns the number of entities with a component of this type.
+func (st *typedStore[T]) entityCount() int {
+	return len(st.values)
+}
+
+// register wires the store into the owner's registries: the typed descriptor
+// key (*T)(nil), the name-keyed store map, and the registration-ordered
+// store list. Called by storeFor on first use and by Deserialize when a
+// store is materialized from a save blob before any component of its type
+// has been written.
+func (st *typedStore[T]) register() {
+	st.owner.stores[(*T)(nil)] = st
+	st.owner.storesByName[st.name] = st
+	st.owner.storeOrder = append(st.owner.storeOrder, st.name)
 }
 
 // contains reports whether the entity has a component of this type.
@@ -123,9 +205,41 @@ func storeFor[T any](s *EntityStoreImpl) *typedStore[T] {
 		return raw.(*typedStore[T])
 	}
 	st := newTypedStore[T](s)
-	s.stores[key] = st
-	s.storesByName[st.name] = st
+	st.register()
 	return st
+}
+
+// storeFactories creates the typed store for a component type name on
+// demand. Deserialize needs it to materialize stores from a save blob
+// before any component of that type has been written: Go generics cannot be
+// instantiated reflectively, so the per-type factory is the type-safe path.
+// Populated by registerComponent (components.go init).
+var storeFactories = map[string]func(owner *EntityStoreImpl) componentStore{}
+
+// registerComponent registers a serializable component type with pod and
+// registers its typed store factory. Called from components.go init for
+// every component type (including nested named types such as StatusEffect,
+// which are part of the encoded layouts and must be registered even though
+// they are not standalone stores).
+func registerComponent[T any]() {
+	var zero T
+	registerPodType(zero)
+	storeFactories[typeName[T]()] = func(owner *EntityStoreImpl) componentStore {
+		return newTypedStore[T](owner)
+	}
+}
+
+// registerPodType registers a type with pod for reflection-based encoding
+// (pod.Register). Every named type reachable from a serialized value —
+// component structs, nested types, and the snapshot types — must be
+// registered or encoding fails with "never registered with pod". A
+// registration collision (the type already registered) is warned and
+// skipped: the type is registered either way.
+func registerPodType(layout any) {
+	if err := pod.Register(layout); err != nil {
+		slog.Warn("pod registration skipped",
+			"type", pod.QualifiedNameForLayout(layout), "err", err)
+	}
 }
 
 // getComponentTyped is the typed read path: descriptor lookup, one type

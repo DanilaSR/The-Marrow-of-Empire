@@ -1,10 +1,19 @@
-// Component definitions for Story EF-002 (Component Model).
+// Component definitions for Story EF-002 (Component Model) and EF-005
+// (Serialization).
 //
 // Components are pure data containers (GDD CR-2): they hold state, they
 // never hold logic. Systems operate on them exclusively through the typed
 // component stores (GetComponent[T], SetComponent[T], RemoveComponent[T]).
 // Field-level write ownership is declared in the GDD CR-7 ownership table;
 // write arbitration arrives with Story EF-004.
+//
+// Serialization (EF-005): every component type is registered with pod at
+// init time (control manifest: "all component stores implement EntityData,
+// registered via pod.Register" — ADR-0001, ADR-0002). Component structs are
+// pure data with no pointers, interfaces, or channels, which pod requires
+// (pointer and interface fields are silently skipped; interface-typed map
+// values cannot be encoded at all). Persistent.StateFlags uses the
+// StateFlagValue tagged union for this reason.
 package entity
 
 import "kaijuengine.com/matrix"
@@ -213,6 +222,48 @@ type MemoryLogEntry struct {
 	Details map[string]string
 }
 
+// StateFlagKind enumerates the value kinds a StateFlagValue can hold
+// (TR-pws-001: bool, int64, float64, or string).
+type StateFlagKind string
+
+const (
+	// StateFlagBool marks a StateFlagValue whose Bool field carries the
+	// value.
+	StateFlagBool StateFlagKind = "bool"
+	// StateFlagInt marks a StateFlagValue whose Int field carries the value.
+	StateFlagInt StateFlagKind = "int"
+	// StateFlagFloat marks a StateFlagValue whose Float field carries the
+	// value.
+	StateFlagFloat StateFlagKind = "float"
+	// StateFlagString marks a StateFlagValue whose Str field carries the
+	// value.
+	StateFlagString StateFlagKind = "string"
+)
+
+// StateFlagValue is one typed value in Persistent.StateFlags (TR-pws-001):
+// values are bool, int64, float64, or string. It is a tagged union — the
+// active field is selected by Kind; the others are zero. It exists because
+// Kaiju's pod encoder cannot encode interface-typed map values (EF-005);
+// the four TR-pws-001 kinds are preserved exactly.
+//
+// Example usage:
+//
+//	persistent.StateFlags["world.door_open"] = entity.StateFlagValue{
+//	    Kind: entity.StateFlagBool, Bool: true,
+//	}
+type StateFlagValue struct {
+	// Kind selects which field carries the value.
+	Kind StateFlagKind
+	// Bool carries a boolean value (Kind == StateFlagBool).
+	Bool bool
+	// Int carries an integer value (Kind == StateFlagInt).
+	Int int64
+	// Float carries a floating-point value (Kind == StateFlagFloat).
+	Float float64
+	// Str carries a string value (Kind == StateFlagString).
+	Str string
+}
+
 // Persistent is world-state tracking and entity memory (GDD CR-2 #13).
 // Attaches to Characters, NPCs, Wildlife, Structures, and Props. State flag
 // namespaces never conflict (GDD CR-7): trust.* (Trust & Relationship),
@@ -222,9 +273,12 @@ type MemoryLogEntry struct {
 // Field ownership (GDD CR-7): namespaced state flags by namespace;
 // Persistent.memory_log is append-only by the Entity Framework.
 type Persistent struct {
-	// StateFlags is a typed key-value flag store: values are bool, int64,
-	// float64, or string (TR-pws-001).
-	StateFlags map[string]any
+	// StateFlags is a typed key-value flag store (TR-pws-001): each value is
+	// a StateFlagValue tagged union holding a bool, int64, float64, or
+	// string. StateFlagValue replaces the former map[string]any because pod
+	// cannot encode interface-typed map values (EF-005); the TR-pws-001
+	// value kinds are unchanged.
+	StateFlags map[string]StateFlagValue
 	// MemoryLog is the append-only structured event log (TR-pws-002).
 	MemoryLog []MemoryLogEntry
 	// ModifiedAt is the game time in minutes of the last modification.
@@ -282,4 +336,36 @@ type Schedule struct {
 	Entries []ScheduleEntry
 	// CurrentActivity is the activity of the currently active entry.
 	CurrentActivity string
+}
+
+// init registers every component type with pod for serialization (control
+// manifest: "all component stores implement EntityData, registered via
+// pod.Register" — ADR-0001, ADR-0002) and registers its typed store factory
+// (storeFactories), which Deserialize uses to rebuild stores from a save
+// blob before any component of the type has been written.
+//
+// Nested named types (StatusEffect, MemoryLogEntry, ScheduleEntry,
+// InteractionType, StateFlagValue) are part of the encoded layouts: pod
+// requires every named type reachable from a serialized value to be
+// registered, so they are registered here too.
+func init() {
+	registerComponent[Health]()
+	registerComponent[Stats]()
+	registerComponent[Inventory]()
+	registerComponent[Knowledge]()
+	registerComponent[Faction]()
+	registerComponent[Dialogue]()
+	registerComponent[StatusEffect]()
+	registerComponent[Combatant]()
+	registerComponent[Interactable]()
+	registerComponent[MemoryLogEntry]()
+	registerComponent[Persistent]()
+	registerComponent[Visual]()
+	registerComponent[Audio]()
+	registerComponent[ScheduleEntry]()
+	registerComponent[Schedule]()
+
+	registerPodType(InteractionType(0))
+		registerPodType(StateFlagKind(""))
+	registerPodType(StateFlagValue{})
 }

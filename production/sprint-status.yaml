@@ -51,31 +51,31 @@ stories:
     name: "Write Arbitration"
     file: "production/epics/entity-framework/story-004-write-arbitration.md"
     priority: must-have
-    status: in-progress
+    status: done
     owner: ""
     estimate_days: 0.5
     blocker: "EF-002"
-    completed: ""
+    completed: "2026-08-10"
 
   - id: "EF-005"
     name: "Serialization"
     file: "production/epics/entity-framework/story-005-serialization.md"
     priority: must-have
-    status: ready-for-dev
+    status: done
     owner: ""
     estimate_days: 1
     blocker: "EF-002, EF-003"
-    completed: ""
+    completed: "2026-08-10"
 
   - id: "EF-006"
     name: "Performance Validation"
     file: "production/epics/entity-framework/story-006-performance-validation.md"
     priority: must-have
-    status: ready-for-dev
+    status: done
     owner: ""
     estimate_days: 0.5
     blocker: "EF-001, EF-002, EF-003, EF-004, EF-005"
-    completed: ""
+    completed: "2026-08-10"
 
   - id: "CAM-001"
     name: "Isometric Projection"

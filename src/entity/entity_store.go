@@ -106,6 +106,45 @@ type EntityStore interface {
 	// EntityState returns the current lifecycle state of an entity.
 	// Returns (state, false) for unknown IDs.
 	EntityState(id GameEntityID) (EntityState, bool)
+
+	// Serialize pod-encodes the complete game-layer state (Story EF-005,
+	// TR-ef-006): the entity table — Active and Suspended entities only, in
+	// registration order (GDD CR-8: Pending and Destroyed are excluded) —
+	// plus the full contents of every non-empty typed component store. The
+	// result is a single pod snapshot blob; the Save/Load system wraps it
+	// with version headers, checksums, and file I/O (out of scope here). A
+	// store with no entities and no component data encodes as zero bytes
+	// (AC-3, no error).
+	//
+	// Example usage:
+	//
+	//	blob, err := store.Serialize()
+	//	if err != nil { /* handle */ }
+	//	// blob -> save file (Save/Load system)
+	Serialize() ([]byte, error)
+
+	// Deserialize replaces the current state with the pod-decoded state of a
+	// Serialize blob (Story EF-005): it clears the store without emitting
+	// lifecycle events (GDD CR-8), recreates the Kaiju entities (reusing
+	// live native entities when the ID is already registered), restores the
+	// entity table, component stores, spatial index, and the monotonic
+	// GameEntityID counter, so post-load entity creation never collides with
+	// restored IDs (GDD CR-1). Unknown component types and non-serializable
+	// entity states in the blob are rejected before any state is touched.
+	// An empty blob is a valid empty snapshot (no-op).
+	//
+	// Deserialize must run after the host has flushed pending native
+	// destruction: engine entities destroyed via host.DestroyEntity are
+	// reclaimed at the next frame's EndUpdate, and their IDs remain
+	// registered until then. Rebuilding an entity whose native entity is
+	// pending destruction fails with an explicit error; the Save/Load system
+	// must invoke load at a frame boundary.
+	//
+	// Example usage:
+	//
+	//	data, _ := os.ReadFile("save.sav") // Save/Load system reads the file
+	//	if err := store.Deserialize(data); err != nil { /* handle */ }
+	Deserialize(data []byte) error
 }
 
 // KaijuHost abstracts the subset of the Kaiju engine Host API required by the
@@ -178,9 +217,12 @@ type EntityStoreImpl struct {
 	// mirrors the same stores keyed by type name for the string-keyed
 	// interface methods and QueryEntities. Both are populated lazily: a
 	// store is allocated on the first write of its component type
-	// (TR-ef-002, GDD CR-2).
+	// (TR-ef-002, GDD CR-2). storeOrder is the registration-ordered list of
+	// store names, parallel to order for entities; Serialize iterates it so
+	// the encoded snapshot is deterministic (GDD: registration order).
 	stores       map[any]any
 	storesByName map[string]componentStore
+	storeOrder   []string
 
 	// index is the uniform grid spatial index (Story EF-003, TR-ef-003).
 	// CreateEntity inserts, retire removes, and UpdatePosition migrates

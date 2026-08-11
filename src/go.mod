@@ -4,6 +4,8 @@ go 1.26.5
 
 require kaijuengine.com v0.0.0
 
+require gopkg.in/yaml.v3 v3.0.1
+
 require (
 	github.com/KaijuEngine/uuid v1.0.0 // indirect
 	github.com/tdewolff/parse/v2 v2.8.1 // indirect

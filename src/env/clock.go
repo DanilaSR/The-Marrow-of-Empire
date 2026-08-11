@@ -1,17 +1,19 @@
 // Package env implements the living environment core systems per ADR-0007
-// (Game Clock & Environment Systems) and TR-env-001/002: the continuous
-// 24-hour game clock at 10:1 compression and the five light states with
-// smooth boundary interpolation.
+// (Game Clock & Environment Systems) and TR-env-001/002/003: the
+// continuous 24-hour game clock at 10:1 compression, the five light
+// states with smooth boundary interpolation, and the wait/pass-time
+// fast-forward with fade transition.
 //
 // The package is pure Go math with no Kaiju engine dependency, so it can
 // be unit-tested without the engine running (tests/unit/env). The clock
-// is a pure data structure — it holds time and pause state only and never
-// renders; a future presentation system consumes LightState and
-// AmbientLight to drive sky, tint, and shadow color (ENV-001: rendering
-// is out of scope).
+// is a pure data structure — it holds time, pause, and fast-forward
+// state only and never renders; a future presentation system consumes
+// LightState, AmbientLight, and FadePhase/FadeProgress to drive sky,
+// tint, shadow color, and the wait fade (ENV-001/ENV-002: rendering is
+// out of scope).
 //
 // Story: ENV-001 (production/epics/living-environment/
-// story-001-game-clock-light-states.md).
+// story-001-game-clock-light-states.md); ENV-002 (story-002-wait-pass-time.md).
 package env
 
 import "math"
@@ -39,13 +41,18 @@ const gameMinutesPerRealSecond = 10.0 / 60.0
 // combat (ENV-001 AC-6; control manifest Core rule: "Never advance time
 // during combat, conversation, menus, or journal").
 //
-// The clock is a pure data structure: it tracks game time and pause state
-// only. The game loop calls Update with real elapsed seconds; consumers
-// read time via TimeMinutes/Hour/Minute and light via CurrentState/
-// Ambient. Pause is a plain boolean flag set by game systems via
-// Pause/Resume (ENV-004 combat integration is a later story; if combat
-// and conversation ever pause concurrently, the Pause/Resume API allows
-// upgrading to a ref-counted flag without changing call sites).
+// The clock is a pure data structure: it tracks game time, pause state,
+// and (during a wait) fast-forward state only. The game loop calls
+// Update with real elapsed seconds; consumers read time via
+// TimeMinutes/Hour/Minute, light via CurrentState/Ambient, and wait
+// transition via IsFastForwarding/FadePhase/FadeProgress. Pause is a
+// plain boolean flag set by game systems via Pause/Resume (ENV-004
+// combat integration is a later story; if combat and conversation ever
+// pause concurrently, the Pause/Resume API allows upgrading to a
+// ref-counted flag without changing call sites). Pause also suspends a
+// wait fast-forward in progress: Update discards dt, so combat or
+// conversation freezes the wait mid-transition and it resumes where it
+// left off (ENV-002 AC-5).
 //
 // Story: ENV-001 (production/epics/living-environment/
 // story-001-game-clock-light-states.md).
@@ -55,6 +62,15 @@ type GameClock struct {
 	// paused freezes Update; set by game systems (conversation, menu,
 	// journal, combat) via Pause/Resume.
 	paused bool
+
+	// Wait fast-forward state (ENV-002; see wait.go): set by FastForward
+	// and driven by Update through the fade-out → advance → fade-in
+	// transition.
+	fastForwarding   bool
+	targetHour       int
+	remainingMinutes float64
+	fadePhase        FadePhase
+	fadeProgress     float64
 }
 
 // NewGameClock returns a clock at the new-game start time 8:00 AM (Day)
@@ -65,16 +81,22 @@ func NewGameClock() *GameClock {
 
 // Update advances the clock by dt real seconds at the 10:1 ratio
 // (game_minutes = real_seconds × 10 / 60, ADR-0007): 6 real seconds
-// equal 1 game minute (ENV-001 AC-2). Time advances only while not
-// paused; a paused clock discards dt entirely (ENV-001 AC-6). At a full
-// day the time wraps to 0:00 — Night spans midnight (20:00-2:00), so no
-// light-state boundary exists at 0:00. dt ≤ 0 is a no-op: time never
-// runs backward.
+// equal 1 game minute (ENV-001 AC-2). While a wait fast-forward is
+// active (ENV-002), Update drives the fade/advance/fade transition
+// instead — see updateFastForward in wait.go. Time advances only while
+// not paused; a paused clock discards dt entirely (ENV-001 AC-6), which
+// also suspends a fast-forward in progress. At a full day the time wraps
+// to 0:00 — Night spans midnight (20:00-2:00), so no light-state
+// boundary exists at 0:00. dt ≤ 0 is a no-op: time never runs backward.
 //
-// Performance: a single multiply, add, and modulo — no allocations
-// (<0.01ms/frame per ADR-0007 Performance Implications).
+// Performance: a multiply, add, and modulo (plus one fast-forward branch)
+// — no allocations (<0.01ms/frame per ADR-0007 Performance Implications).
 func (c *GameClock) Update(dt float64) {
 	if c.paused || dt <= 0 {
+		return
+	}
+	if c.fastForwarding {
+		c.updateFastForward(dt)
 		return
 	}
 	c.timeMinutes = math.Mod(c.timeMinutes+dt*gameMinutesPerRealSecond, MinutesPerDay)
@@ -82,13 +104,14 @@ func (c *GameClock) Update(dt float64) {
 
 // Pause freezes the clock: Update discards dt while paused. Game systems
 // call Pause when conversation, menu, journal, or combat begins (ADR-0007
-// Time Pause). Pause is idempotent.
+// Time Pause). A wait fast-forward in progress is suspended and resumes
+// on Resume (ENV-002 AC-5). Pause is idempotent.
 func (c *GameClock) Pause() {
 	c.paused = true
 }
 
-// Resume unfreezes the clock after the pausing system ends. Resume is
-// idempotent.
+// Resume unfreezes the clock after the pausing system ends, continuing
+// any suspended wait fast-forward. Resume is idempotent.
 func (c *GameClock) Resume() {
 	c.paused = false
 }
@@ -101,7 +124,7 @@ func (c *GameClock) IsPaused() bool {
 // SetTime sets the game time in game minutes since midnight, wrapping any
 // value into [0, 1440) (negative values wrap into the previous day). Used
 // by save/load restore (ADR-0002 full-state serialization) and by test
-// fixtures; pause state is unaffected.
+// fixtures; pause and fast-forward state are unaffected.
 func (c *GameClock) SetTime(minutes float64) {
 	c.timeMinutes = wrapMinutes(minutes)
 }

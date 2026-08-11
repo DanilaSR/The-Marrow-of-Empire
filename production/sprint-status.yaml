@@ -9,80 +9,111 @@
 #   done           ↔  Complete
 #   blocked        ↔  Blocked
 
-sprint: 1
-goal: "Establish the entity architecture foundation — typed component stores, spatial index, lifecycle events, write arbitration, and pod serialization."
-start: "2026-08-09"
-end: "2026-08-15"
-generated: "2026-08-09"
-updated: "2026-08-10"
+sprint: 3
+goal: "Establish the Core gameplay foundation: character stats, save/load orchestration, and CI/CD."
+start: "2026-08-11"
+end: "2026-08-17"
+generated: "2026-08-11"
+updated: "2026-08-11"
 
 stories:
-  - id: "EF-001"
-    name: "Entity Lifecycle"
-    file: "production/epics/entity-framework/story-001-entity-lifecycle.md"
+  - id: "STAT-001"
+    name: "Attribute Model"
+    file: "production/epics/character-stats-progression/story-001-attribute-model.md"
     priority: must-have
     status: done
     owner: ""
-    estimate_days: 1
-    blocker: ""
-    completed: "2026-08-10"
+    estimate_days: 0.4
+    blocker: "EF-001"
+    completed: "2026-08-11"
 
-  - id: "EF-002"
-    name: "Component Model"
-    file: "production/epics/entity-framework/story-002-component-model.md"
+  - id: "STAT-002"
+    name: "Derived Stats"
+    file: "production/epics/character-stats-progression/story-002-derived-stats.md"
     priority: must-have
     status: done
     owner: ""
-    estimate_days: 1
-    blocker: ""
-    completed: "2026-08-10"
+    estimate_days: 0.4
+    blocker: "STAT-001"
+    completed: "2026-08-11"
 
-  - id: "EF-003"
-    name: "Spatial Index"
-    file: "production/epics/entity-framework/story-003-spatial-index.md"
+  - id: "STAT-003"
+    name: "XP & Leveling"
+    file: "production/epics/character-stats-progression/story-004-xp-progression.md"
     priority: must-have
     status: done
     owner: ""
-    estimate_days: 1
-    blocker: ""
-    completed: "2026-08-10"
+    estimate_days: 0.4
+    blocker: "STAT-002"
+    completed: "2026-08-11"
 
-  - id: "EF-004"
-    name: "Write Arbitration"
-    file: "production/epics/entity-framework/story-004-write-arbitration.md"
+  - id: "SAVE-001"
+    name: "Save/Load Orchestration"
+    file: "production/epics/save-load-system/story-001-save-load-orchestration.md"
     priority: must-have
-    status: done
+    status: review
     owner: ""
-    estimate_days: 0.5
-    blocker: "EF-002"
-    completed: "2026-08-10"
+    estimate_days: 0.6
+    blocker: "EF-002, EF-005"
+    completed: ""
 
-  - id: "EF-005"
-    name: "Serialization"
-    file: "production/epics/entity-framework/story-005-serialization.md"
+  - id: "SAVE-002"
+    name: "Save File I/O"
+    file: "production/epics/save-load-system/story-002-steam-cloud-paths.md"
     priority: must-have
-    status: done
+    status: ready-for-dev
     owner: ""
-    estimate_days: 1
-    blocker: "EF-002, EF-003"
-    completed: "2026-08-10"
+    estimate_days: 0.4
+    blocker: "SAVE-001"
+    completed: ""
 
-  - id: "EF-006"
-    name: "Performance Validation"
-    file: "production/epics/entity-framework/story-006-performance-validation.md"
+  - id: "CI-001"
+    name: "CI/CD Workflow Setup"
+    file: "production/epics/infrastructure/story-002-ci-workflow.md"
     priority: must-have
-    status: done
+    status: in-progress
     owner: ""
-    estimate_days: 0.5
-    blocker: "EF-001, EF-002, EF-003, EF-004, EF-005"
-    completed: "2026-08-10"
+    estimate_days: 0.3
+    blocker: "INFRA-001"
+    completed: ""
 
-  - id: "CAM-001"
-    name: "Isometric Projection"
-    file: "production/epics/camera-system/story-001-isometric-projection.md"
+  - id: "KG-001"
+    name: "Knowledge Graph Data Model"
+    file: "production/epics/npc-knowledge-graph/story-001-knowledge-domain-fact-model.md"
     priority: should-have
     status: backlog
     owner: ""
-    estimate_days: 1
+    estimate_days: 0.6
+    blocker: "EF-001, EF-002"
+    completed: ""
+
+  - id: "ENV-001"
+    name: "Game Clock"
+    file: "production/epics/living-environment/story-001-game-clock-light-states.md"
+    priority: should-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: "EF-001"
+    completed: ""
+
+  - id: "STAT-004"
+    name: "Equipment Stat Modification"
+    file: "MISSING — no story file exists"
+    priority: should-have
+    status: blocked
+    blocker: "Story file not created — candidate epics: character-stats-progression (story-003-character-creation or story-005-stats-component-integration)"
+    owner: ""
+    estimate_days: 0.3
+    blocker: "STAT-001"
+    completed: ""
+
+  - id: "ASSET-001"
+    name: "FBX → Kaiju Mesh Import"
+    file: "production/epics/asset-scene-pipeline/story-001-fbx-import-normalization.md"
+    priority: nice-to-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.8
     blocker: ""
     completed: ""

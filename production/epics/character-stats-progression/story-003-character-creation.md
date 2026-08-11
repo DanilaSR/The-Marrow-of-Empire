@@ -1,8 +1,8 @@
 # Story 003: Character Creation
 
 > **Epic**: Character Stats & Progression
-> **Status**: Ready | **Layer**: Core | **Type**: Logic | **Estimate**: M (4-6 hours)
-> **Manifest Version**: 2026-08-09 | **Depends on**: Story 001, Story 002
+> **Status**: Complete | **Layer**: Core | **Type**: Logic | **Estimate**: M (4-6 hours)
+> **Manifest Version**: 2026-08-09 | **Last Updated**: 2026-08-11 | **Depends on**: Story 001, Story 002
 
 ## Context
 **GDD**: `design/gdd/character-stats-progression.md` | **Req**: `TR-stats-004` | **ADR**: ADR-0006
@@ -16,3 +16,10 @@
 
 ## Implementation Notes
 From ADR-0006: All attributes start at 8. Linear cost: `N - 8`. Max starting: 16. 30 points total. Confirmation creates the Stats component on the player entity.
+
+## Completion Notes
+**Completed**: 2026-08-11
+**Criteria**: 4/4 passing
+**Deviations**: None
+**Test Evidence**: `tests/unit/stats/creation_test.go` — 7 tests, all PASS
+**Code Review**: Approved with suggestions (lead-programmer + qa-tester, 2026-08-11)

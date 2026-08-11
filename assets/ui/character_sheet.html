@@ -1,0 +1,1332 @@
+<!--
+  The Marrow of Empire — Character Sheet (Story 001)
+  Kaiju Engine UI (HTML/CSS-like markup, no JS runtime).
+  Loaded via markup.DocumentFromHTMLAsset; populated from Go by element id.
+  All player-facing strings are English placeholders pending localization.
+
+  Desk register (ADR-0012): full-screen parchment overlay, world dims to 30%.
+  Art bible palette:
+    Parchment #E3D5B0 | Ink #1C1813 | Panel umber #2E2820 | Soot #141210
+    Oxblood #7A2E28 | Thread red #C4483A | Amber #D9A441
+  Text is ink on parchment only — amber is bar fill/accent, never text.
+  Bars always pair with numeric values — nothing is encoded by color alone.
+-->
+<style>
+  .sheet-root {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    display: none; /* toggled from Go: flex when open */
+    flex-direction: column;
+    background-color: rgba(20, 18, 16, 0.70); /* soot dim — world shows at 30% */
+    font-family: "EB Garamond", "Georgia", serif; /* TODO: swap for baked desk serif (Garamond class, OFL) */
+  }
+
+  .sheet-paper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: auto;
+    width: 92%;
+    height: 92%;
+    display: flex;
+    flex-direction: column;
+    padding: 28px 36px;
+    background-color: #E3D5B0; /* parchment */
+    border: 1px solid rgba(28, 24, 19, 0.35);
+    border-radius: 3px 5px 4px 6px;
+  }
+
+  .sheet-title {
+    font-size: 22px;
+    font-weight: normal;
+    letter-spacing: 0.03em;
+    text-transform: uppercase; /* TODO: swap to pre-baked small-caps face */
+    color: #1C1813; /* ink */
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .title-rule {
+    width: 100%;
+    height: 1px;
+    background-color: rgba(28, 24, 19, 0.25);
+    margin-bottom: 18px;
+  }
+
+  .sheet-cols {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    gap: 24px;
+  }
+
+  /* Party sidebar (Story 008): left 20% column with party portraits —
+     player at top, active companions in party order, pool companions greyed
+     and unselectable below (C&I GDD layout). Cells are Go-duplicated copies
+     of the hidden #party-portrait-tpl template (inventory grid pattern);
+     per-cell children are class-addressed because duplicated templates
+     share no ids. The selected portrait carries the 3px amber border (amber
+     is accent/fill only, never text — ADR-0012); with keyboard focus
+     (Story 009) the oxblood box-shadow ring wraps it. Portrait size is a Go
+     tuning knob (sidebar_portrait_size = 72px, range 48-128). overflow-y is
+     declared per spec but scroll is virtual-list-only in this engine
+     version — the 6-member roster fits the reference layout. */
+  .party-sidebar {
+    width: 20%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    border-right: 1px solid rgba(28, 24, 19, 0.25);
+    padding-right: 20px;
+    overflow-y: scroll;
+  }
+
+  .party-portrait {
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .party-portrait-frame {
+    position: relative;
+    width: 72px; /* set from Go: sidebar_portrait_size knob */
+    height: 72px;
+    background-color: rgba(28, 24, 19, 0.04);
+    border: 2px solid rgba(28, 24, 19, 0.55); /* pen-and-ink outline */
+  }
+
+  .party-portrait-face {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    border: 1px solid rgba(28, 24, 19, 0.30); /* single-stroke portrait placeholder */
+  }
+
+  .party-portrait-selected .party-portrait-frame {
+    border: 3px solid #D9A441; /* amber — selection accent, never text */
+  }
+
+  /* Oxblood focus ring (Story 009 calls SetFocus): 2px ring around the
+     selected portrait, ≥3:1 contrast on parchment (ADR-0012). */
+  .party-portrait-focused .party-portrait-frame {
+    box-shadow: 0 0 0 2px #7A2E28;
+  }
+
+  .party-portrait-pool {
+    opacity: 0.45; /* greyed: recruited but not in the active party */
+  }
+
+  .party-name {
+    max-width: 96px;
+    font-size: 14px;
+    color: #1C1813; /* ink */
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* Behavior glyphs (party GDD CR-5): always visible on the portrait
+     corner. Single-stroke CSS placeholders (Kaiju CSS has no rotate; icon
+     assets arrive later): aggressive = sword (blade + crossguard),
+     defensive = shield (hollow square), passive = eye (ring + pupil). The
+     class is applied from Go via BehaviorGlyphClass. */
+  .party-glyph {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 16px;
+    height: 16px;
+  }
+
+  .party-glyph-dot {
+    display: none;
+  }
+
+  .party-glyph-aggressive {
+    border-left: 2px solid #1C1813; /* blade */
+    border-bottom: 2px solid #1C1813; /* pommel */
+  }
+
+  .party-glyph-aggressive .party-glyph-dot {
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 7px;
+    height: 2px;
+    background-color: #1C1813; /* crossguard */
+  }
+
+  .party-glyph-defensive {
+    border: 2px solid #1C1813; /* hollow shield square */
+  }
+
+  .party-glyph-passive {
+    border: 2px solid #1C1813;
+    border-radius: 50%; /* eye ring */
+  }
+
+  .party-glyph-passive .party-glyph-dot {
+    display: block;
+    position: absolute;
+    left: 5px;
+    top: 5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #1C1813; /* pupil */
+  }
+
+  /* Companion tooltip (Story 008): parchment card beside the portrait —
+     name, level, role, HP bar (live from the Health component), trust
+     indicator (amber glow at trust 1+, full glow at 3), and the Inspect
+     button. Shows after a 300ms hover; the pointer may cross onto the
+     tooltip during a 100ms grace before it dismisses. All text is ink;
+     amber is fill/glow only (ADR-0012). */
+  .party-tooltip {
+    position: absolute;
+    left: 100%;
+    top: 0;
+    margin-left: 10px;
+    width: 240px;
+    display: none; /* toggled from Go: flex when shown */
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    background-color: #E3D5B0; /* parchment */
+    border: 1px solid rgba(28, 24, 19, 0.45);
+    box-shadow: 2px 2px 6px rgba(20, 18, 16, 0.35);
+    z-index: 30;
+  }
+
+  .party-tooltip-name {
+    font-size: 16px; /* body text at reference resolution (TR-ui-006) */
+    color: #1C1813;
+  }
+
+  .party-tooltip-level,
+  .party-tooltip-role {
+    font-size: 14px;
+    color: rgba(28, 24, 19, 0.75);
+  }
+
+  .party-tooltip-hp {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .party-tooltip-hp-track {
+    flex: 1;
+    height: 8px;
+    background-color: rgba(28, 24, 19, 0.15);
+    border: 1px solid rgba(28, 24, 19, 0.25);
+  }
+
+  .party-tooltip-hp-fill {
+    height: 100%;
+    width: 0%; /* set from Go: TooltipHPFraction * 100% */
+    background-color: #D9A441; /* amber — fill only, never text */
+  }
+
+  .party-tooltip-hp-label {
+    font-size: 14px;
+    color: #1C1813; /* ink — the HP text is never amber */
+  }
+
+  .party-tooltip-trust {
+    width: 24px;
+    height: 6px;
+    background-color: rgba(28, 24, 19, 0.25); /* umber-greyed: trust 0 */
+  }
+
+  .party-tooltip-inspect {
+    align-self: flex-start;
+    margin-top: 4px;
+    padding: 2px 14px;
+    font-size: 14px;
+    color: #1C1813;
+    border: 1px solid rgba(28, 24, 19, 0.45);
+  }
+
+  /* Trust indicator (C&I GDD party overview): amber glow at trust 1+, full
+     glow at trust 3. Amber is fill/glow only — the indicator carries no
+     text (ADR-0012); the numeric level label sits beside it in ink. */
+  .trust-glow {
+    background-color: #D9A441; /* amber glow — trust 1-2 */
+    opacity: 0.6;
+    box-shadow: 0 0 6px rgba(217, 164, 65, 0.6);
+  }
+
+  .trust-full {
+    background-color: #D9A441; /* full amber glow — trust 3 */
+    box-shadow: 0 0 10px rgba(217, 164, 65, 0.9);
+  }
+
+  /* Companion inspect (Story 008, AC-21): the Trust & Relationship section
+     and the Knowledge Domains list, shown in the center panel while a
+     non-player companion is viewed. Hidden by default; Go toggles display.
+     Domain rows are Go-duplicated copies of the hidden #companion-domain-tpl
+     (class-addressed children); the amber proficiency bar always pairs with
+     the "n/5" ink label (ADR-0012). */
+  .companion-panel {
+    display: none; /* toggled from Go: flex while a companion is viewed */
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 14px;
+    border-top: 1px solid rgba(28, 24, 19, 0.25);
+    padding-top: 14px;
+  }
+
+  .companion-trust-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .companion-trust-indicator {
+    width: 18px;
+    height: 6px;
+    background-color: rgba(28, 24, 19, 0.25);
+  }
+
+  .companion-trust-level {
+    font-size: 16px;
+    color: #1C1813;
+  }
+
+  .companion-trust-history {
+    font-size: 16px;
+    color: rgba(28, 24, 19, 0.75);
+  }
+
+  .companion-domains {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  #companion-domain-tpl {
+    display: none; /* template only — rows are Go-duplicated copies */
+  }
+
+  .companion-domain-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .companion-domain-name {
+    width: 150px;
+    font-size: 16px;
+    color: #1C1813;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .companion-domain-track {
+    flex: 1;
+    height: 8px;
+    background-color: rgba(28, 24, 19, 0.15);
+    border: 1px solid rgba(28, 24, 19, 0.25);
+  }
+
+  .companion-domain-fill {
+    height: 100%;
+    width: 0%; /* set from Go: proficiency/5 * 100% */
+    background-color: #D9A441; /* amber — fill only, never text */
+  }
+
+  .companion-domain-proficiency {
+    width: 36px;
+    text-align: right;
+    font-size: 16px;
+    color: #1C1813; /* ink — the "n/5" label is never amber */
+  }
+
+  .companion-domains-empty {
+    font-size: 16px;
+    color: rgba(28, 24, 19, 0.5); /* subdued ink, never bright or amber */
+  }
+
+  /* Center: six attribute bars. */
+  .attr-panel {
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  /* Right: derived stats. */
+  .derived-panel {
+    width: 30%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    border-left: 1px solid rgba(28, 24, 19, 0.25);
+    padding-left: 20px;
+  }
+
+  .panel-header {
+    font-size: 18px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase; /* TODO: small-caps face */
+    color: #1C1813;
+    margin-bottom: 4px;
+  }
+
+  .attr-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .attr-name {
+    width: 44px;
+    font-size: 16px; /* body text at reference resolution (TR-ui-006) */
+    color: #1C1813;
+  }
+
+  .attr-track {
+    flex: 1;
+    height: 10px;
+    background-color: rgba(28, 24, 19, 0.15); /* umber-tinted track */
+    border: 1px solid rgba(28, 24, 19, 0.25);
+  }
+
+  .attr-fill {
+    height: 100%;
+    width: 0%; /* set from Go: BarFillFraction(value) * 100% */
+    background-color: #D9A441; /* amber — fill only, never text */
+  }
+
+  .attr-value {
+    width: 72px;
+    text-align: right;
+    font-size: 16px;
+    color: #1C1813;
+  }
+
+  /* XP progress bar (Story 002): full-width row across the bottom of the
+     center panel — level label, amber fill, current/needed XP. Amber is
+     fill only, never text (ADR-0012); all labels are ink on parchment. */
+  .xp-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    border-top: 1px solid rgba(28, 24, 19, 0.25);
+    padding-top: 14px;
+  }
+
+  .xp-level {
+    width: 64px;
+    font-size: 16px; /* body text at reference resolution (TR-ui-006) */
+    color: #1C1813;
+  }
+
+  .xp-track {
+    flex: 1;
+    height: 10px;
+    background-color: rgba(28, 24, 19, 0.15); /* umber-tinted track */
+    border: 1px solid rgba(28, 24, 19, 0.25);
+  }
+
+  .xp-fill {
+    height: 100%;
+    width: 0%; /* set from Go: XPProgressPct(c) * 100% */
+    background-color: #D9A441; /* amber — fill only, never text */
+  }
+
+  .xp-label {
+    width: 130px;
+    text-align: right;
+    font-size: 16px;
+    color: #1C1813;
+  }
+
+  /* Level-up modal (Story 002): mandatory desk overlay on the sheet — no
+     cancel button, only Confirm closes it. Driven from Go (Show /
+     AllocatePoint / Confirm); clicks and hovers dispatch through the
+     markup funcMap. Attribute bars pulse amber on hover while a point is
+     awaiting allocation (Go-driven opacity, Kaiju CSS has no animations). */
+  .lu-modal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    display: none; /* toggled from Go: flex when shown */
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(20, 18, 16, 0.55); /* soot dim over the sheet */
+  }
+
+  .lu-panel {
+    width: 440px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 24px 28px;
+    background-color: #E3D5B0; /* parchment */
+    border: 1px solid rgba(28, 24, 19, 0.35);
+    border-radius: 3px 5px 4px 6px;
+  }
+
+  .lu-header {
+    font-size: 18px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase; /* TODO: small-caps face */
+    color: #1C1813;
+    text-align: center;
+  }
+
+  .lu-body {
+    font-size: 16px; /* body text at reference resolution (TR-ui-006) */
+    color: #1C1813;
+    text-align: center;
+  }
+
+  .lu-attrs {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 0;
+    border-top: 1px solid rgba(28, 24, 19, 0.25);
+    border-bottom: 1px solid rgba(28, 24, 19, 0.25);
+  }
+
+  .lu-attr-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .lu-attr-name {
+    width: 44px;
+    font-size: 16px;
+    color: #1C1813;
+  }
+
+  .lu-attr-track {
+    flex: 1;
+    height: 8px;
+    background-color: rgba(28, 24, 19, 0.15);
+    border: 1px solid rgba(28, 24, 19, 0.25);
+  }
+
+  .lu-attr-fill {
+    height: 100%;
+    width: 0%; /* set from Go: BarFillFraction(attribute) * 100% */
+    background-color: #D9A441; /* amber — fill only, never text */
+  }
+
+  .lu-attr-value {
+    width: 72px;
+    text-align: right;
+    font-size: 16px;
+    color: #1C1813;
+  }
+
+  .lu-add {
+    width: 26px;
+    height: 26px;
+    text-align: center;
+    font-size: 18px;
+    line-height: 26px;
+    color: #1C1813;
+    border: 1px solid rgba(28, 24, 19, 0.45);
+    background-color: rgba(28, 24, 19, 0.06);
+  }
+
+  .lu-add-disabled {
+    color: rgba(28, 24, 19, 0.3);
+    border-color: rgba(28, 24, 19, 0.15);
+  }
+
+  .lu-confirm {
+    align-self: center;
+    padding: 6px 26px;
+    font-size: 16px;
+    color: #1C1813;
+    border: 1px solid rgba(28, 24, 19, 0.45);
+  }
+
+  .lu-confirm-disabled {
+    color: rgba(28, 24, 19, 0.3);
+    border-color: rgba(28, 24, 19, 0.15);
+  }
+
+  .derived-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .derived-name {
+    font-size: 16px;
+    color: #1C1813;
+  }
+
+  .derived-value {
+    font-size: 16px;
+    color: #1C1813;
+  }
+
+  /* Equipment slots (Story 003): bottom strip of the sheet — eight 72×72
+     pen-and-ink slot cells (GDD equipment registry). Empty slots show a
+     silhouette outline; filled slots show the item icon layer. During a
+     drag the hovered compatible slot gets an amber border (amber is
+     accent/fill only, never text — ADR-0012) and the rejected slot dims
+     with a grey X (AC-7 — shape + shade, never hue alone). */
+  .equip-section {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-top: 16px;
+    border-top: 1px solid rgba(28, 24, 19, 0.25);
+    padding-top: 14px;
+  }
+
+  .equip-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .equip-slot {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    background-color: rgba(28, 24, 19, 0.04);
+    border: 2px solid rgba(28, 24, 19, 0.55); /* pen-and-ink outline */
+  }
+
+  .equip-slot-hover {
+    border-color: #D9A441; /* amber accent — highlight only */
+  }
+
+  .equip-slot-reject {
+    background-color: rgba(28, 24, 19, 0.12);
+  }
+
+  .equip-icon {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    display: none; /* toggled from Go: flex when the slot is filled */
+    border: 1px solid rgba(28, 24, 19, 0.30);
+  }
+
+  .equip-silhouette {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: auto;
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(28, 24, 19, 0.40); /* single-stroke placeholder outline */
+  }
+
+  .equip-reject {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: auto;
+    width: 72px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    line-height: 40px;
+    color: rgba(28, 24, 19, 0.35); /* greyed ink X */
+  }
+
+  .equip-divider {
+    width: 1px;
+    height: 56px;
+    background-color: rgba(28, 24, 19, 0.25);
+    margin: 0 6px;
+  }
+
+  /* Green ink for the equipment attribute bonus notes (AC-9: STR displays
+     as "14 (+2)" with the bonus in green). The GDD mandates green for stat
+     diffs/bonuses; the shade is a green ink pending an art bible palette
+     addition. Text is never amber on parchment (ADR-0012). */
+  .attr-bonus {
+    width: 48px;
+    font-size: 16px;
+    color: #2F5A22;
+  }
+
+  /* Tab bar (Story 005): Character | Inventory under the title rule. The
+     active tab carries a 2px amber underline — amber is accent, never
+     text (ADR-0012); the tab labels are ink on parchment. */
+  .tab-bar {
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(28, 24, 19, 0.25);
+  }
+
+  .tab {
+    padding: 4px 18px;
+    font-size: 16px; /* body text at reference resolution (TR-ui-006) */
+    color: #1C1813; /* ink */
+    border: 1px solid rgba(28, 24, 19, 0.35);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px; /* overlap the tab-bar rule so the accent reads as an underline */
+    background-color: rgba(28, 24, 19, 0.04);
+  }
+
+  .tab-active {
+    border-bottom-color: #D9A441; /* amber accent underline — accent only */
+  }
+
+  /* Inventory panel (Story 005): search + gold on top, category filter
+     bar, then the scrollable 6-column item grid with the weight bar below
+     it and the item detail panel on the right. All text is ink on
+     parchment; amber appears as fills, underlines, and the tiny stack
+     count accent only. */
+  .inv-panel {
+    flex: 1;
+    display: none; /* toggled from Go: flex when the Inventory tab is active */
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+  }
+
+  .inv-topbar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .inv-search {
+    width: 300px;
+    font-size: 16px;
+    color: #1C1813;
+    border: 1px solid rgba(28, 24, 19, 0.45);
+    background-color: rgba(28, 24, 19, 0.03);
+    padding: 4px 8px;
+  }
+
+  .inv-gold {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .inv-gold-icon {
+    width: 16px;
+    height: 16px;
+    border: 1px solid rgba(28, 24, 19, 0.45); /* coin placeholder until icon assets exist */
+  }
+
+  .inv-gold-value {
+    font-size: 16px;
+    color: #1C1813;
+  }
+
+  /* Category filter bar: All, Weapons, Armor, Consumables, Quest Items,
+     Crafting. The active filter carries the amber underline accent —
+     accent, never text (ADR-0012). */
+  .inv-filters {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .inv-filter {
+    padding: 2px 10px;
+    font-size: 16px;
+    color: #1C1813;
+    border-bottom: 2px solid transparent;
+  }
+
+  .inv-filter-active {
+    border-bottom-color: #D9A441; /* amber accent underline */
+  }
+
+  .inv-body {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    gap: 24px;
+    min-height: 0;
+  }
+
+  .inv-grid-col {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative; /* anchors the empty-state message */
+    min-height: 0;
+  }
+
+  /* Scrollable 6×64px item grid (GDD tuning knobs inventory_grid_columns
+     = 6, inventory_grid_cell_size = 64px). Cells are duplicated from the
+     hidden #inv-cell-tpl template by the Go presenter
+     (document.DuplicateElementToParent). The cell borders read as the
+     subtle grid lines on empty areas. */
+  .inv-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 64px 64px 64px 64px 64px 64px;
+    grid-auto-rows: 64px;
+    gap: 6px;
+    overflow: scroll;
+    border: 1px solid rgba(28, 24, 19, 0.25);
+    padding: 6px;
+    min-height: 0;
+  }
+
+  #inv-cell-tpl {
+    display: none; /* template only — cells are Go-duplicated copies */
+  }
+
+  .inv-cell {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    background-color: rgba(28, 24, 19, 0.04);
+    border: 1px solid rgba(28, 24, 19, 0.30); /* subtle grid line */
+  }
+
+  .inv-cell-selected {
+    border: 2px solid #D9A441; /* amber accent — selection highlight */
+  }
+
+  .inv-cell-icon {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    border: 1px solid rgba(28, 24, 19, 0.30); /* single-stroke icon placeholder */
+  }
+
+  .inv-cell-count {
+    position: absolute;
+    right: 3px;
+    bottom: 1px;
+    font-size: 12px;
+    color: #D9A441; /* amber accent — discrete stack-count indicator */
+  }
+
+  /* Empty pack (AC-14): centered in the grid area, subdued ink — never
+     bright or amber. */
+  .inv-empty {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: auto;
+    height: 20px;
+    display: none; /* toggled from Go: flex when the pack is empty */
+    text-align: center;
+    font-size: 16px;
+    color: rgba(28, 24, 19, 0.5); /* subdued ink */
+  }
+
+  /* Weight bar (below the grid): amber fill → amber-oxblood blend → oxblood
+     (GDD thresholds), always paired with the ink percentage text so color
+     is never the sole channel (ADR-0012). Hidden when the pack is empty
+     (AC-14). */
+  .inv-weight-row {
+    display: none; /* toggled from Go: flex when the pack has items */
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .inv-weight-label {
+    width: 190px;
+    text-align: right;
+    font-size: 16px;
+    color: #1C1813; /* ink — the percentage text is never amber */
+  }
+
+  .inv-weight-track {
+    flex: 1;
+    height: 10px;
+    background-color: rgba(28, 24, 19, 0.15); /* umber-tinted track */
+    border: 1px solid rgba(28, 24, 19, 0.25);
+  }
+
+  .inv-weight-fill {
+    height: 100%;
+    width: 0%; /* set from Go: WeightPct(current, max) — width, then palette color */
+    background-color: #D9A441; /* amber — fill only, never text */
+  }
+
+  /* Item detail panel (right): name, large icon placeholder, description,
+     stats list, weight, value. Story 004 adds equipment comparison to this
+     panel. */
+  .inv-detail {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-left: 1px solid rgba(28, 24, 19, 0.25);
+    padding-left: 20px;
+    min-height: 0;
+  }
+
+  .inv-detail-name {
+    font-size: 18px;
+    color: #1C1813;
+  }
+
+  .inv-detail-icon {
+    width: 96px;
+    height: 96px;
+    border: 1px solid rgba(28, 24, 19, 0.30); /* single-stroke placeholder */
+    background-color: rgba(28, 24, 19, 0.04);
+  }
+
+  .inv-detail-desc {
+    font-size: 16px;
+    color: rgba(28, 24, 19, 0.75);
+  }
+
+  .inv-detail-stats {
+    font-size: 16px;
+    color: #1C1813;
+  }
+
+  .inv-detail-weight {
+    font-size: 16px;
+    color: #1C1813;
+  }
+
+  .inv-detail-value {
+    font-size: 16px;
+    color: #1C1813;
+  }
+
+  /* Toast notifications (Story 006): reusable timed notifications (e.g.
+     "Inventory full", AC-13) — brief, non-blocking, one at a time. Field
+     register treatment (ADR-0012): amber text on a dark panel-umber
+     background — NEVER amber on parchment (control manifest forbidden
+     pattern). Centered near the bottom of the screen, z-index above the
+     sheet and the level-up modal. The overlay is a SIBLING of #sheet-root
+     so it stays visible while the sheet is closed (world-interaction
+     toasts, QA AC-13 edge). Driven from Go: ToastView applies display,
+     opacity (fade-out), text, and the amber color token. No event
+     handlers — non-interactive, takes no focus. */
+  .toast-root {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 48px;
+    z-index: 30;
+    display: none; /* toggled from Go: flex while a toast is visible */
+    justify-content: center;
+  }
+
+  .toast-panel {
+    padding: 10px 24px;
+    background-color: #2E2820; /* panel umber — dark transient background, not parchment */
+    border: 1px solid rgba(217, 164, 65, 0.45); /* amber accent border */
+    border-radius: 3px 5px 4px 6px; /* desk register corner rounding */
+  }
+
+  .toast-text {
+    font-size: 16px; /* body text at reference resolution (TR-ui-006) */
+    color: #D9A441; /* amber — applied from Go via ToastTextColorHex (default here for markup readability) */
+    text-align: center;
+  }
+</style>
+
+<!-- sheet-root's onmouseup cancels an equipment drag dropped outside any
+     slot (Story 003: Kaiju CSS has no drag events, so drops outside a slot
+     are cancelled here; slot drops dispatch on the slot cells). -->
+<Panel id="sheet-root" class="sheet-root" onmouseup="equipDropOutside">
+  <Panel id="sheet-paper" class="sheet-paper">
+    <Label class="sheet-title">Character Record</Label>
+    <Panel class="title-rule"></Panel>
+
+    <!-- Tab bar (Story 005): Character | Inventory. The active tab carries
+         the amber underline accent (amber is accent, never text —
+         ADR-0012). Tab switching chrome lives here; Story 007 owns the
+         200ms crossfade and the C/I key handling. -->
+    <Panel class="tab-bar">
+      <Panel id="tab-character" class="tab tab-active" data-tab="character" onclick="sheetTabSelect">Character</Panel>
+      <Panel id="tab-inventory" class="tab" data-tab="inventory" onclick="sheetTabSelect">Inventory</Panel>
+    </Panel>
+
+    <Panel id="sheet-cols" class="sheet-cols">
+      <!-- Party sidebar (Story 008): portraits in party order — player at
+           top, active companions below, pool companions greyed and
+           unselectable at the bottom. Cells are Go-duplicated copies of the
+           hidden #party-portrait-tpl template (engine strips the template
+           root id, so per-cell children are class-addressed); each copy
+           carries a data-index attribute that the partySelect/partyHover
+           handlers resolve. The 300ms hover tooltip opens beside the
+           portrait (name, level, role, HP bar, trust indicator, Inspect
+           button); the Inspect button switches the sheet to the companion
+           (AC-21). The template is hidden by default (see CSS). -->
+      <Panel id="party-sidebar" class="party-sidebar">
+        <Label class="panel-header">Companions</Label>
+        <Panel id="party-portrait-tpl" class="party-portrait"
+               onclick="partySelect" onmouseenter="partyHover" onmouseleave="partyHoverNone">
+          <Panel class="party-portrait-frame">
+            <Panel class="party-portrait-face"></Panel>
+            <Panel class="party-glyph"><Panel class="party-glyph-dot"></Panel></Panel>
+            <Panel class="party-tooltip" onmouseenter="partyTooltipEnter" onmouseleave="partyTooltipLeave">
+              <Label class="party-tooltip-name"></Label>
+              <Label class="party-tooltip-level"></Label>
+              <Label class="party-tooltip-role"></Label>
+              <Panel class="party-tooltip-hp">
+                <Panel class="party-tooltip-hp-track"><Panel class="party-tooltip-hp-fill"></Panel></Panel>
+                <Label class="party-tooltip-hp-label"></Label>
+              </Panel>
+              <Panel class="party-tooltip-trust"></Panel>
+              <Panel class="party-tooltip-inspect" onclick="partyInspect">Inspect</Panel>
+            </Panel>
+          </Panel>
+          <Label class="party-name"></Label>
+        </Panel>
+      </Panel>
+
+      <!-- Six attribute bars: name, proportional fill, value (modifier). -->
+      <Panel id="attr-panel" class="attr-panel">
+        <Label class="panel-header">Attributes</Label>
+        <Panel id="attr-str" class="attr-row">
+          <Label class="attr-name">STR</Label>
+          <Panel class="attr-track"><Panel id="attr-str-fill" class="attr-fill"></Panel></Panel>
+          <Label id="attr-str-value" class="attr-value"></Label>
+          <Label id="attr-str-bonus" class="attr-bonus"></Label>
+        </Panel>
+        <Panel id="attr-dex" class="attr-row">
+          <Label class="attr-name">DEX</Label>
+          <Panel class="attr-track"><Panel id="attr-dex-fill" class="attr-fill"></Panel></Panel>
+          <Label id="attr-dex-value" class="attr-value"></Label>
+          <Label id="attr-dex-bonus" class="attr-bonus"></Label>
+        </Panel>
+        <Panel id="attr-con" class="attr-row">
+          <Label class="attr-name">CON</Label>
+          <Panel class="attr-track"><Panel id="attr-con-fill" class="attr-fill"></Panel></Panel>
+          <Label id="attr-con-value" class="attr-value"></Label>
+          <Label id="attr-con-bonus" class="attr-bonus"></Label>
+        </Panel>
+        <Panel id="attr-int" class="attr-row">
+          <Label class="attr-name">INT</Label>
+          <Panel class="attr-track"><Panel id="attr-int-fill" class="attr-fill"></Panel></Panel>
+          <Label id="attr-int-value" class="attr-value"></Label>
+          <Label id="attr-int-bonus" class="attr-bonus"></Label>
+        </Panel>
+        <Panel id="attr-wis" class="attr-row">
+          <Label class="attr-name">WIS</Label>
+          <Panel class="attr-track"><Panel id="attr-wis-fill" class="attr-fill"></Panel></Panel>
+          <Label id="attr-wis-value" class="attr-value"></Label>
+          <Label id="attr-wis-bonus" class="attr-bonus"></Label>
+        </Panel>
+        <Panel id="attr-cha" class="attr-row">
+          <Label class="attr-name">CHA</Label>
+          <Panel class="attr-track"><Panel id="attr-cha-fill" class="attr-fill"></Panel></Panel>
+          <Label id="attr-cha-value" class="attr-value"></Label>
+          <Label id="attr-cha-bonus" class="attr-bonus"></Label>
+        </Panel>
+
+        <!-- XP progress bar (Story 002): level, amber fill, current/needed
+             XP. Populated from Go: xp-fill width = XPProgressPct(c),
+             xp-label = XPProgressDisplay(c) ("Max Level" at the cap). -->
+        <Panel id="xp-row" class="xp-row">
+          <Label id="xp-level" class="xp-level">Level 1</Label>
+          <Panel class="xp-track"><Panel id="xp-fill" class="xp-fill"></Panel></Panel>
+          <Label id="xp-label" class="xp-label">0 / 300 XP</Label>
+        </Panel>
+
+        <!-- Companion inspect (Story 008, AC-21): shown while a non-player
+             companion is viewed — the Trust & Relationship section (amber
+             trust indicator, "Trusted (2/3)" level label, last five
+             relationship events) and the Knowledge Domains list (name,
+             amber proficiency bar, "n/5" label). Hidden by default; Go
+             toggles display and populates the values. Domain rows are
+             duplicated from the hidden #companion-domain-tpl template. -->
+        <Panel id="companion-panel" class="companion-panel">
+          <Label class="panel-header">Trust & Relationship</Label>
+          <Panel class="companion-trust-row">
+            <Panel id="companion-trust-indicator" class="companion-trust-indicator trust-none"></Panel>
+            <Label id="companion-trust-level" class="companion-trust-level"></Label>
+          </Panel>
+          <Label id="companion-trust-history" class="companion-trust-history"></Label>
+          <Label class="panel-header">Knowledge Domains</Label>
+          <Panel id="companion-domains" class="companion-domains">
+            <Panel id="companion-domain-tpl" class="companion-domain-row">
+              <Label class="companion-domain-name"></Label>
+              <Panel class="companion-domain-track"><Panel class="companion-domain-fill"></Panel></Panel>
+              <Label class="companion-domain-proficiency"></Label>
+            </Panel>
+          </Panel>
+          <Label id="companion-domains-empty" class="companion-domains-empty">No knowledge domains.</Label>
+        </Panel>
+      </Panel>
+
+      <!-- Derived stats: computed from attributes, read-only.
+           Formula breakdown on hover arrives with the interaction stories
+           (Story 004 / Story 009), not in this story. -->
+      <Panel id="derived-panel" class="derived-panel">
+        <Label class="panel-header">Derived</Label>
+        <Panel class="derived-row">
+          <Label class="derived-name">Max Health</Label>
+          <Label id="derived-maxhp-value" class="derived-value"></Label>
+        </Panel>
+        <Panel class="derived-row">
+          <Label class="derived-name">Action Points</Label>
+          <Label id="derived-ap-value" class="derived-value"></Label>
+        </Panel>
+        <Panel class="derived-row">
+          <Label class="derived-name">Initiative</Label>
+          <Label id="derived-initiative-value" class="derived-value"></Label>
+        </Panel>
+        <Panel class="derived-row">
+          <Label class="derived-name">Evasion</Label>
+          <Label id="derived-evasion-value" class="derived-value"></Label>
+        </Panel>
+        <Panel class="derived-row">
+          <Label class="derived-name">Carry Capacity</Label>
+          <Label id="derived-carry-value" class="derived-value"></Label>
+        </Panel>
+      </Panel>
+    </Panel>
+
+    <!-- Inventory tab (Story 005): search + gold on top, category filter
+         bar, then the scrollable 6×64px item grid with the weight bar
+         below and the item detail panel on the right. The grid is
+         populated from Go by duplicating the hidden #inv-cell-tpl template
+         (document.DuplicateElementToParent); each copy carries a
+         data-index attribute that the invSelect handler resolves. The
+         hidden by default; the tab bar toggles it against #sheet-cols. -->
+    <Panel id="inv-panel" class="inv-panel">
+      <Panel class="inv-topbar">
+        <Panel class="inv-search-wrap">
+          <Input id="inv-search" class="inv-search" type="text" placeholder="Search items"
+                 onchange="invSearch" onkeyup="invSearch"></Input>
+        </Panel>
+        <Panel class="inv-gold">
+          <Panel class="inv-gold-icon"></Panel>
+          <Label id="inv-gold-value" class="inv-gold-value">0</Label>
+        </Panel>
+      </Panel>
+      <Panel class="inv-filters">
+        <Panel id="inv-filter-all" class="inv-filter inv-filter-active" data-cat="all" onclick="invFilter">All</Panel>
+        <Panel id="inv-filter-weapons" class="inv-filter" data-cat="weapons" onclick="invFilter">Weapons</Panel>
+        <Panel id="inv-filter-armor" class="inv-filter" data-cat="armor" onclick="invFilter">Armor</Panel>
+        <Panel id="inv-filter-consumables" class="inv-filter" data-cat="consumables" onclick="invFilter">Consumables</Panel>
+        <Panel id="inv-filter-questitems" class="inv-filter" data-cat="questitems" onclick="invFilter">Quest Items</Panel>
+        <Panel id="inv-filter-crafting" class="inv-filter" data-cat="crafting" onclick="invFilter">Crafting</Panel>
+      </Panel>
+      <Panel class="inv-body">
+        <Panel class="inv-grid-col">
+          <Panel id="inv-grid" class="inv-grid">
+            <Panel id="inv-cell-tpl" class="inv-cell" onclick="invSelect">
+              <Panel class="inv-cell-icon"></Panel>
+              <Label class="inv-cell-count"></Label>
+            </Panel>
+          </Panel>
+          <Label id="inv-empty" class="inv-empty">Your pack is empty.</Label>
+          <Panel id="inv-weight-row" class="inv-weight-row">
+            <Label id="inv-weight-label" class="inv-weight-label">0 / 0 lbs (0%)</Label>
+            <Panel class="inv-weight-track"><Panel id="inv-weight-fill" class="inv-weight-fill"></Panel></Panel>
+          </Panel>
+        </Panel>
+        <Panel class="inv-detail">
+          <Label class="panel-header">Details</Label>
+          <Label id="inv-detail-name" class="inv-detail-name">—</Label>
+          <Panel id="inv-detail-icon" class="inv-detail-icon"></Panel>
+          <Label id="inv-detail-desc" class="inv-detail-desc"></Label>
+          <Label id="inv-detail-stats" class="inv-detail-stats"></Label>
+          <Label id="inv-detail-weight" class="inv-detail-weight"></Label>
+          <Label id="inv-detail-value" class="inv-detail-value"></Label>
+        </Panel>
+      </Panel>
+    </Panel>
+
+    <!-- Equipment slots (Story 003): eight 72×72 pen-and-ink slot cells in
+         the bottom strip — armor (Head, Chest, Hands, Legs), weapons (Main
+         Hand, Off Hand), accessories (1, 2), per the GDD equipment registry.
+         Each cell holds an icon layer (image placeholder — becomes <img
+         src="..."> when pen-and-ink icon assets exist), a silhouette
+         outline (empty state), and a grey X (incompatible rejection, AC-7).
+         Driven from Go: populateEquipment + the equipmentFuncMap mouse
+         handlers (no CSS drag events). Part of the character tab: hidden
+         while the Inventory tab is active. -->
+    <Panel id="equip-section" class="equip-section">
+      <Label class="panel-header">Equipment</Label>
+      <Panel class="equip-row">
+        <Panel id="equip-head" class="equip-slot" data-slot="head"
+               onmousedown="equipDragStart" onmouseenter="equipHover"
+               onmouseleave="equipHoverNone" onmouseup="equipDrop"
+               onrightclick="equipUnequip">
+          <Panel id="equip-head-icon" class="equip-icon"></Panel>
+          <Panel class="equip-silhouette"></Panel>
+          <Label id="equip-head-reject" class="equip-reject">×</Label>
+        </Panel>
+        <Panel id="equip-chest" class="equip-slot" data-slot="chest"
+               onmousedown="equipDragStart" onmouseenter="equipHover"
+               onmouseleave="equipHoverNone" onmouseup="equipDrop"
+               onrightclick="equipUnequip">
+          <Panel id="equip-chest-icon" class="equip-icon"></Panel>
+          <Panel class="equip-silhouette"></Panel>
+          <Label id="equip-chest-reject" class="equip-reject">×</Label>
+        </Panel>
+        <Panel id="equip-hands" class="equip-slot" data-slot="hands"
+               onmousedown="equipDragStart" onmouseenter="equipHover"
+               onmouseleave="equipHoverNone" onmouseup="equipDrop"
+               onrightclick="equipUnequip">
+          <Panel id="equip-hands-icon" class="equip-icon"></Panel>
+          <Panel class="equip-silhouette"></Panel>
+          <Label id="equip-hands-reject" class="equip-reject">×</Label>
+        </Panel>
+        <Panel id="equip-legs" class="equip-slot" data-slot="legs"
+               onmousedown="equipDragStart" onmouseenter="equipHover"
+               onmouseleave="equipHoverNone" onmouseup="equipDrop"
+               onrightclick="equipUnequip">
+          <Panel id="equip-legs-icon" class="equip-icon"></Panel>
+          <Panel class="equip-silhouette"></Panel>
+          <Label id="equip-legs-reject" class="equip-reject">×</Label>
+        </Panel>
+        <Panel class="equip-divider"></Panel>
+        <Panel id="equip-mainhand" class="equip-slot" data-slot="mainhand"
+               onmousedown="equipDragStart" onmouseenter="equipHover"
+               onmouseleave="equipHoverNone" onmouseup="equipDrop"
+               onrightclick="equipUnequip">
+          <Panel id="equip-mainhand-icon" class="equip-icon"></Panel>
+          <Panel class="equip-silhouette"></Panel>
+          <Label id="equip-mainhand-reject" class="equip-reject">×</Label>
+        </Panel>
+        <Panel id="equip-offhand" class="equip-slot" data-slot="offhand"
+               onmousedown="equipDragStart" onmouseenter="equipHover"
+               onmouseleave="equipHoverNone" onmouseup="equipDrop"
+               onrightclick="equipUnequip">
+          <Panel id="equip-offhand-icon" class="equip-icon"></Panel>
+          <Panel class="equip-silhouette"></Panel>
+          <Label id="equip-offhand-reject" class="equip-reject">×</Label>
+        </Panel>
+        <Panel id="equip-accessory1" class="equip-slot" data-slot="accessory1"
+               onmousedown="equipDragStart" onmouseenter="equipHover"
+               onmouseleave="equipHoverNone" onmouseup="equipDrop"
+               onrightclick="equipUnequip">
+          <Panel id="equip-accessory1-icon" class="equip-icon"></Panel>
+          <Panel class="equip-silhouette"></Panel>
+          <Label id="equip-accessory1-reject" class="equip-reject">×</Label>
+        </Panel>
+        <Panel id="equip-accessory2" class="equip-slot" data-slot="accessory2"
+               onmousedown="equipDragStart" onmouseenter="equipHover"
+               onmouseleave="equipHoverNone" onmouseup="equipDrop"
+               onrightclick="equipUnequip">
+          <Panel id="equip-accessory2-icon" class="equip-icon"></Panel>
+          <Panel class="equip-silhouette"></Panel>
+          <Label id="equip-accessory2-reject" class="equip-reject">×</Label>
+        </Panel>
+      </Panel>
+    </Panel>
+
+    <!-- Level-up modal (Story 002): mandatory overlay on the character
+         sheet — no cancel button; only Confirm closes it. Driven from Go:
+         lu-header/Lu-hp/values from Show, lu-attr-{row}-fill pulses on
+         hover, lu-confirm enables once the milestone point is allocated.
+         Click and hover attributes dispatch through the markup funcMap
+         (levelUpConfirm / levelUpAlloc / levelUpHover / levelUpHoverNone). -->
+    <Panel id="level-up-modal" class="lu-modal">
+      <Panel class="lu-panel">
+        <Label id="lu-header" class="lu-header">Level Up</Label>
+        <Label id="lu-hp" class="lu-body"></Label>
+        <Panel class="lu-attrs">
+          <Panel class="lu-attr-row" data-attr="str" onmouseenter="levelUpHover" onmouseleave="levelUpHoverNone">
+            <Label class="lu-attr-name">STR</Label>
+            <Panel class="lu-attr-track"><Panel id="lu-attr-str-fill" class="lu-attr-fill"></Panel></Panel>
+            <Label id="lu-attr-str-value" class="lu-attr-value">10 (+0)</Label>
+            <Panel id="lu-attr-str-add" class="lu-add" data-attr="str" onclick="levelUpAlloc">+</Panel>
+          </Panel>
+          <Panel class="lu-attr-row" data-attr="dex" onmouseenter="levelUpHover" onmouseleave="levelUpHoverNone">
+            <Label class="lu-attr-name">DEX</Label>
+            <Panel class="lu-attr-track"><Panel id="lu-attr-dex-fill" class="lu-attr-fill"></Panel></Panel>
+            <Label id="lu-attr-dex-value" class="lu-attr-value">10 (+0)</Label>
+            <Panel id="lu-attr-dex-add" class="lu-add" data-attr="dex" onclick="levelUpAlloc">+</Panel>
+          </Panel>
+          <Panel class="lu-attr-row" data-attr="con" onmouseenter="levelUpHover" onmouseleave="levelUpHoverNone">
+            <Label class="lu-attr-name">CON</Label>
+            <Panel class="lu-attr-track"><Panel id="lu-attr-con-fill" class="lu-attr-fill"></Panel></Panel>
+            <Label id="lu-attr-con-value" class="lu-attr-value">10 (+0)</Label>
+            <Panel id="lu-attr-con-add" class="lu-add" data-attr="con" onclick="levelUpAlloc">+</Panel>
+          </Panel>
+          <Panel class="lu-attr-row" data-attr="int" onmouseenter="levelUpHover" onmouseleave="levelUpHoverNone">
+            <Label class="lu-attr-name">INT</Label>
+            <Panel class="lu-attr-track"><Panel id="lu-attr-int-fill" class="lu-attr-fill"></Panel></Panel>
+            <Label id="lu-attr-int-value" class="lu-attr-value">10 (+0)</Label>
+            <Panel id="lu-attr-int-add" class="lu-add" data-attr="int" onclick="levelUpAlloc">+</Panel>
+          </Panel>
+          <Panel class="lu-attr-row" data-attr="wis" onmouseenter="levelUpHover" onmouseleave="levelUpHoverNone">
+            <Label class="lu-attr-name">WIS</Label>
+            <Panel class="lu-attr-track"><Panel id="lu-attr-wis-fill" class="lu-attr-fill"></Panel></Panel>
+            <Label id="lu-attr-wis-value" class="lu-attr-value">10 (+0)</Label>
+            <Panel id="lu-attr-wis-add" class="lu-add" data-attr="wis" onclick="levelUpAlloc">+</Panel>
+          </Panel>
+          <Panel class="lu-attr-row" data-attr="cha" onmouseenter="levelUpHover" onmouseleave="levelUpHoverNone">
+            <Label class="lu-attr-name">CHA</Label>
+            <Panel class="lu-attr-track"><Panel id="lu-attr-cha-fill" class="lu-attr-fill"></Panel></Panel>
+            <Label id="lu-attr-cha-value" class="lu-attr-value">10 (+0)</Label>
+            <Panel id="lu-attr-cha-add" class="lu-add" data-attr="cha" onclick="levelUpAlloc">+</Panel>
+          </Panel>
+        </Panel>
+        <Panel id="lu-confirm" class="lu-confirm lu-confirm-disabled" onclick="levelUpConfirm">Confirm</Panel>
+      </Panel>
+    </Panel>
+  </Panel>
+</Panel>
+
+<!-- Toast notifications (Story 006): a SIBLING of #sheet-root — the toast
+     is a World/Field notification (ADR-0012) that stays visible while the
+     sheet is closed (pickup attempts during world exploration, QA AC-13
+     edge). Amber text on dark panel umber, never amber on parchment
+     (control manifest). Driven from Go: ToastView.Show /
+     InventoryFullToast; display, opacity, text, and color are applied per
+     frame. No event handlers — non-interactive, does not take focus. -->
+<Panel id="toast-root" class="toast-root">
+  <Panel id="toast-panel" class="toast-panel">
+    <Label id="toast-text" class="toast-text"></Label>
+  </Panel>
+</Panel>

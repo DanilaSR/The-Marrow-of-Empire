@@ -12,9 +12,9 @@
 |---|-------|------|--------|-----|
 | 001 | Attribute Model & Modifiers | Logic | Ready | ADR-0006 |
 | 002 | Derived Stats | Logic | Ready | ADR-0006 |
-| 003 | Character Creation | Logic | Ready | ADR-0006 |
+| 003 | Character Creation | Logic | Complete | ADR-0006 |
 | 004 | XP & Level Progression | Logic | Ready | ADR-0006 |
-| 005 | Stats Component Integration | Integration | Ready | ADR-0006 |
+| 005 | Stats Component Integration | Integration | Complete | ADR-0006 |
 
 ## Overview
 

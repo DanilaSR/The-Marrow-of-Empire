@@ -70,6 +70,65 @@ func QueryFacts(graph *KnowledgeGraph, cfg QueryConfig) []Fact {
 	return out
 }
 
+// Query returns the facts this graph makes accessible at trustLevel, in
+// authoring order (Story KG-003, TR-kg-003). A fact is included when it is
+// not trust-gated at trustLevel (TrustRequired <= trustLevel, via IsGated)
+// and its Domain matches domain. An empty domain means no restriction —
+// facts from all domains are returned.
+//
+// Query is the trust-gated accessor for gameplay logic; it does not evaluate
+// DiscoveryTriggers and applies no result cap. Callers feeding an LLM prompt
+// must use QueryFacts, which also filters discovery triggers and enforces the
+// prompt-budget maximum (ADR-0005). Returns nil when no fact matches or when
+// g is nil.
+func (g *KnowledgeGraph) Query(domain string, trustLevel int) []Fact {
+	if g == nil {
+		return nil
+	}
+	var out []Fact
+	for _, f := range g.Facts {
+		if IsGated(f, trustLevel) {
+			continue
+		}
+		if domain != "" && f.Domain != domain {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
+// QueryMulti returns the union of Query across domains, in authoring order
+// (Story KG-003, TR-kg-003). A fact is included when it is not trust-gated at
+// trustLevel and its Domain is one of domains. Because every fact belongs to
+// exactly one domain, the union contains no duplicates. An empty-string entry
+// matches only facts with an empty Domain field — for "all domains" use
+// Query with an empty domain. An empty domains slice matches nothing.
+//
+// Like Query, DiscoveryTrigger evaluation and the prompt-budget cap are
+// QueryFacts' responsibility. Returns nil when no fact matches or when g is
+// nil.
+func (g *KnowledgeGraph) QueryMulti(domains []string, trustLevel int) []Fact {
+	if g == nil {
+		return nil
+	}
+	wanted := make(map[string]struct{}, len(domains))
+	for _, d := range domains {
+		wanted[d] = struct{}{}
+	}
+	var out []Fact
+	for _, f := range g.Facts {
+		if IsGated(f, trustLevel) {
+			continue
+		}
+		if _, ok := wanted[f.Domain]; !ok {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
 // triggersSatisfied reports whether every required trigger is present in the
 // satisfied set. A fact with no required triggers is always satisfied
 // (vacuous truth).

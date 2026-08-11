@@ -242,6 +242,36 @@ func registerPodType(layout any) {
 	}
 }
 
+// RegisterComponent registers a component type defined outside the entity
+// package (e.g. knowledge.KnowledgeGraph from the NPC Knowledge Graph system,
+// Story KG-005) for use with the Entity Framework: it registers the type with
+// pod for serialization and registers its typed store factory, so
+// GetComponent, SetComponent, RemoveComponent, and the save/load serialization
+// pass (EntityData through the typed store) work for the type. Component types
+// defined inside this package are registered in components.go init; types
+// defined in packages that import entity — which entity cannot import back
+// without an import cycle — call this from their package init.
+//
+// The component must be a named type (anonymous types resolve to a store name
+// of "", colliding with each other). Nested named types reachable from the
+// component's fields (e.g. Fact and Lead inside KnowledgeGraph) are not
+// registered automatically and must be registered with RegisterPodType too:
+// pod requires every named type reachable from a serialized value to be
+// registered.
+func RegisterComponent[T any]() {
+	registerComponent[T]()
+}
+
+// RegisterPodType registers a named type with pod for reflection-based
+// encoding, mirroring registerPodType for types registered via
+// RegisterComponent: component types are registered automatically, their
+// nested named types are not and must be registered explicitly. A
+// registration collision (the type already registered) is warned and skipped
+// — the type is registered either way.
+func RegisterPodType(layout any) {
+	registerPodType(layout)
+}
+
 // getComponentTyped is the typed read path: descriptor lookup, one type
 // assertion, direct map read. Returns (zero, false) for destroyed or unknown
 // entities, for component types never written, and for missing components.

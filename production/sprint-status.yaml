@@ -9,111 +9,140 @@
 #   done           ↔  Complete
 #   blocked        ↔  Blocked
 
-sprint: 4
-goal: "Establish the NPC Knowledge Graph and Living Environment game clock — the Core systems that power AI-driven dialogue and the world's passage of time."
-start: "2026-08-11"
-end: "2026-08-17"
-generated: "2026-08-11"
+sprint: 5
+goal: "Ship CI/CD (resolved), begin Feature layer with Tactical Combat Engine, and import the Asset Pipeline — FBX normalization, material mapping, scene format, and KitBash3D pack integration."
+start: "2026-08-12"
+end: "2026-08-18"
+generated: "2026-08-12"
 updated: "2026-08-11"
 
 stories:
-  - id: "KG-001"
-    name: "Knowledge Domain & Fact Model"
-    file: "production/epics/npc-knowledge-graph/story-001-knowledge-domain-fact-model.md"
+  - id: "CI-001"
+    name: "CI/CD Workflow Setup"
+    file: "production/epics/infrastructure/story-002-ci-workflow.md"
     priority: must-have
     status: done
-    owner: ""
-    estimate_days: 0.8
-    blocker: "EF-001, EF-002"
-    completed: "2026-08-11"
+    owner: "devops-engineer"
+    estimate_days: 0.3
+    blocker: ""
+    completed: "2026-08-12"
 
-  - id: "KG-002"
-    name: "YAML .kg File Parser"
-    file: "production/epics/npc-knowledge-graph/story-002-yaml-kg-parser.md"
-    priority: must-have
-    status: in-progress
-    owner: "gameplay-programmer"
-    estimate_days: 0.8
-    blocker: "KG-001"
-    completed: ""
-
-  - id: "KG-003"
-    name: "Trust Gating & Query Interface"
-    file: "production/epics/npc-knowledge-graph/story-003-trust-gating-queries.md"
-    priority: must-have
-    status: in-progress
-    owner: "gameplay-programmer"
-    owner: ""
-    estimate_days: 0.8
-    blocker: "KG-001, KG-002"
-    completed: ""
-
-  - id: "ENV-001"
-    name: "Game Clock & Light States"
-    file: "production/epics/living-environment/story-001-game-clock-light-states.md"
+  - id: "COMBAT-001"
+    name: "Combat State Machine & Initiative"
+    file: "production/epics/tactical-combat-engine/story-001-combat-state-machine-initiative.md"
     priority: must-have
     status: done
     owner: "gameplay-programmer"
-    estimate_days: 0.8
-    blocker: "EF-001"
+    estimate_days: 0.5
+    blocker: ""
     completed: "2026-08-11"
 
-  - id: "KG-004"
-    name: "Entity References & Knowledge Boundaries"
-    file: "production/epics/npc-knowledge-graph/story-004-entity-references-boundaries.md"
-    priority: should-have
-    status: backlog
-    owner: ""
+  - id: "COMBAT-002"
+    name: "Grid Movement & AP Economy"
+    file: "production/epics/tactical-combat-engine/story-002-grid-movement-ap-economy.md"
+    priority: must-have
+    status: done
+    owner: "gameplay-programmer"
     estimate_days: 0.4
-    blocker: "KG-003"
-    completed: ""
+    blocker: ""
+    completed: "2026-08-11"
 
-  - id: "KG-005"
-    name: "Knowledge Component Integration"
-    file: "production/epics/npc-knowledge-graph/story-005-knowledge-component-integration.md"
+  - id: "COMBAT-003"
+    name: "Attack Resolution (d20)"
+    file: "production/epics/tactical-combat-engine/story-003-attack-resolution-d20.md"
     priority: should-have
-    status: backlog
-    owner: ""
-    estimate_days: 0.8
-    blocker: "KG-003"
-    completed: ""
+    status: done
+    owner: "gameplay-programmer"
+    estimate_days: 0.4
+    blocker: ""
+    completed: "2026-08-11"
 
-  - id: "ENV-002"
-    name: "Wait / Pass-Time Mechanic"
-    file: "production/epics/living-environment/story-002-wait-pass-time.md"
+  - id: "COMBAT-004"
+    name: "Positioning & Cover"
+    file: "production/epics/tactical-combat-engine/story-004-positioning-cover-system.md"
     priority: should-have
-    status: backlog
-    owner: ""
-    estimate_days: 0.8
-    blocker: "ENV-001"
-    completed: ""
+    status: done
+    owner: "gameplay-programmer"
+    estimate_days: 0.3
+    blocker: ""
+    completed: "2026-08-11"
 
-  - id: "SAVE-003"
-    name: "Save File Corruption Recovery"
-    file: "production/epics/save-load-system/story-003-corruption-recovery.md"
-    priority: should-have
-    status: backlog
-    owner: ""
-    estimate_days: 0.6
-    blocker: "SAVE-001"
-    completed: ""
+  - id: "COMBAT-005"
+    name: "Death, Dying & Stabilization"
+    file: "production/epics/tactical-combat-engine/story-005-death-dying-stabilization.md"
+    priority: nice-to-have
+    status: done
+    owner: "gameplay-programmer"
+    estimate_days: 0.3
+    blocker: ""
+    completed: "2026-08-11"
 
   - id: "ASSET-001"
     name: "FBX Import & Normalization"
     file: "production/epics/asset-scene-pipeline/story-001-fbx-import-normalization.md"
-    priority: nice-to-have
+    priority: should-have
     status: backlog
     owner: ""
-    estimate_days: 0.8
+    estimate_days: 1.0
     blocker: ""
     completed: ""
 
-  - id: "STAT-004"
-    name: "Equipment Stat Modification"
-    file: "MISSING — no story file exists"
-    priority: nice-to-have
-    status: blocked
+  - id: "ASSET-002"
+    name: "Material Mapping & Validation"
+    file: "production/epics/asset-scene-pipeline/story-002-material-mapping-validation.md"
+    priority: should-have
+    status: backlog
     owner: ""
-    estimate_days: 0.3
-    blocker: "Story file not created — candidate epic: character-stats-progression"
+    estimate_days: 0.8
+    blocker: "ASSET-001"
     completed: ""
+
+  - id: "ASSET-003"
+    name: "Scene Format & Entity Placement"
+    file: "production/epics/asset-scene-pipeline/story-003-scene-format-placement.md"
+    priority: should-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.8
+    blocker: "ASSET-001"
+    completed: ""
+
+  - id: "ASSET-004"
+    name: "Two-Pack Integration Rules"
+    file: "production/epics/asset-scene-pipeline/story-004-pack-mixing-rules.md"
+    priority: should-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: "ASSET-001, ASSET-002"
+    completed: ""
+
+  - id: "DIALOGUE-UI-001"
+    name: "Dialogue Panel Framework & Lifecycle"
+    file: "production/epics/dialogue-ui/story-001-dialogue-panel-framework.md"
+    priority: must-have
+    status: in-progress
+    owner: "ui-programmer"
+    estimate_days: 0.4
+    blocker: ""
+    completed: ""
+
+  - id: "AI-DIALOGUE-004"
+    name: "State Machine, Degradation & Conversation Memory"
+    file: "production/epics/ai-dialogue-engine/story-004-state-machine-degradation-memory.md"
+    priority: must-have
+    status: done
+    owner: "ai-programmer"
+    estimate_days: 1.0
+    blocker: ""
+    completed: "2026-08-11"
+
+  - id: "AI-DIALOGUE-005"
+    name: "Tiered Routing & Tiny Model CGo Backend"
+    file: "production/epics/ai-dialogue-engine/story-005-tiered-routing-tiny-cgo.md"
+    priority: must-have
+    status: done
+    owner: "ai-programmer"
+    estimate_days: 1.0
+    blocker: ""
+    completed: "2026-08-11"

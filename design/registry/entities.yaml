@@ -25,144 +25,1522 @@
 #
 # SEARCH PATTERNS (for skills using Grep):
 #   All entity names:        Grep pattern="^  - name:" path="design/registry/entities.yaml"
-#   Specific entity:         Grep pattern="  - name: goblin" path="design/registry/entities.yaml"
-#   All items:               Grep pattern="^  - name:" path="design/registry/entities.yaml" (items section)
-#   What combat.md owns:     Grep pattern="source: design/gdd/combat.md"
-#   What inventory.md uses:  Grep pattern="referenced_by.*inventory"
-#   All gold values:          Grep pattern="value_gold:"
-#   Deprecated entries:      Grep pattern="status: deprecated"
-#
-# FORMAT: YAML. Consistent indentation is critical for grep reliability.
-#   Sections: entities | items | formulas | constants
-#   Each entry: name, status, source, referenced_by[], attributes{}, added, revised
+#   Specific entity:         Grep pattern="  - name: Health" path="design/registry/entities.yaml"
+#   All formulas:            Grep pattern="^formulas:" -A 9999 path="design/registry/entities.yaml"
+#   All constants:           Grep pattern="^constants:" -A 9999 path="design/registry/entities.yaml"
 
 version: 1
-last_updated: ""
+last_updated: 2026-08-09
 
-# ─── ENTITIES ────────────────────────────────────────────────────────────────
-# Named game-world objects: enemies, NPCs, characters, factions, bosses.
-# Register an entity here when it appears in more than one GDD — e.g., an
-# enemy defined in combat.md that also drops items listed in inventory.md.
-#
-# Required fields: name, status, source, referenced_by, added
-# Attribute fields: any key stats that could appear in another GDD
-#   (health, damage, drops, faction, etc.)
+# ══════════════════════════════════════════════════════════════════════════════
+# ENTITIES
+# ══════════════════════════════════════════════════════════════════════════════
 
-entities: []
+entities:
 
-# Example (remove when first real entry is added):
-#
-# entities:
-#   - name: goblin
-#     status: active              # active | deprecated
-#     source: design/gdd/combat.md
-#     referenced_by:
-#       - design/gdd/combat.md
-#       - design/gdd/inventory.md
-#     health: 40
-#     damage: 8
-#     drops:
-#       - item: goblin_arm        # must match an entry in items section
-#         qty: 1
-#         drop_rate: 0.8          # 0.0–1.0
-#     added: 2026-03-26
-#     revised: ""
+  # ── Entity Framework: Entity Types ────────────────────────────────────────
+  - name: EntityType
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/asset-scene-pipeline.md
+      - design/gdd/save-load-system.md
+    values: [Character, NPC, Item, Prop, Wildlife, Structure, Trigger, Zone]
+    added: 2026-08-09
+    revised: ""
 
+  - name: GameEntityID
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/save-load-system.md
+      - design/gdd/camera-system.md
+    data_type: uint64
+    uniqueness: "monotonic counter, never reused after destruction; universal cross-system reference"
+    added: 2026-08-09
+    revised: ""
 
-# ─── ITEMS ───────────────────────────────────────────────────────────────────
-# Named collectables, equipment, consumables, crafting materials, currency.
-# Register an item when its name or value appears in more than one GDD.
-#
-# Required fields: name, status, source, referenced_by, added
-# Attribute fields: value_gold, weight, stackable, category, and any stat
-#   modifiers that another system (e.g., economy, crafting) might reference.
+  - name: PlayerEntity
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/camera-system.md
+      - design/gdd/save-load-system.md
+    entity_type: Character
+    components: [Health, Stats, Inventory, PlayerKnowledge, Faction, Persistent, Visual, Audio]
+    rules: ["never suspended", "camera follows", "investigation state owner"]
+    added: 2026-08-09
+    revised: ""
 
-items: []
+  # ── Entity Framework: 15 Components ───────────────────────────────────────
 
-# Example:
-#
-# items:
-#   - name: goblin_arm
-#     status: active
-#     source: design/gdd/combat.md   # drop defined in combat GDD
-#     referenced_by:
-#       - design/gdd/combat.md
-#       - design/gdd/inventory.md    # inventory GDD lists its weight/stack rules
-#       - design/gdd/economy.md      # economy GDD references its sell price
-#     value_gold: 5
-#     weight: 1
-#     stackable: true
-#     category: crafting_material
-#     added: 2026-03-26
-#     revised: ""
+  - name: Health
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/tactical-combat-engine.md
+      - design/gdd/combat-ui.md
+      - design/gdd/save-load-system.md
+    fields: [current, max, temporary]
+    attaches_to: [Character, NPC, Wildlife, Structure]
+    write_owners: {current: tactical-combat-engine, max: character-stats-progression}
+    added: 2026-08-09
+    revised: ""
 
+  - name: Stats
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/character-stats-progression.md
+      - design/gdd/party-system.md
+      - design/gdd/combat-ui.md
+      - design/gdd/save-load-system.md
+    fields: [attributes, derived_values]
+    attaches_to: [Character, NPC]
+    write_owner: character-stats-progression
+    added: 2026-08-09
+    revised: ""
 
-# ─── FORMULAS ────────────────────────────────────────────────────────────────
-# Named calculations with defined variables and output ranges.
-# Register a formula when its output feeds into another system's input,
-# or when another GDD references it by name.
-#
-# Required fields: name, status, source, referenced_by, variables[],
-#   output_range[min, max], added
-# Optional: expression (the actual formula), notes
+  - name: Inventory
+    status: active
+    source: design/gdd/loot-economy.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/save-load-system.md
+      - design/gdd/character-inventory-ui.md
+      - design/gdd/loot-economy.md
+    fields: [items, equipment_slots, gold]
+    attaches_to: [Character, NPC]
+    added: 2026-08-09
+    revised: 2026-08-10
+    # was: source = entity-framework.md; revised 2026-08-10 to loot-economy.md (authoritative writer)
+  - name: Equipment Slots
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    referenced_by:
+      - design/gdd/character-inventory-ui.md
+      - design/gdd/party-system.md
+      - design/gdd/tactical-combat-engine.md
+    values: [Head, Chest, Hands, Legs, Main Hand, Off Hand, Accessory 1, Accessory 2]
+    slot_count: 8
+    added: 2026-08-09
+    revised: ""
 
-formulas: []
+  - name: Container
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/save-load-system.md
+    fields: [contents, capacity, is_locked]
+    attaches_to: [NPC, Prop, Structure]
+    added: 2026-08-09
+    revised: ""
 
-# Example:
-#
-# formulas:
-#   - name: damage_formula
-#     status: active
-#     source: design/gdd/combat.md
-#     referenced_by:
-#       - design/gdd/combat.md
-#       - design/gdd/progression.md   # progression GDD scales attack variable
-#     variables:
-#       - attack
-#       - defense
-#       - crit_chance
-#       - crit_multiplier
-#     output_range: [0, 999]
-#     expression: "max(0, attack - defense) * (1 + crit_chance * crit_multiplier)"
-#     notes: "Output feeds into health-system damage intake. Min is 0 (armour
-#       can absorb all damage). Max is uncapped in formula but tuning knob
-#       damage_cap in combat.md clamps at 999."
-#     added: 2026-03-26
-#     revised: ""
+  - name: Knowledge
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/question-system.md
+      - design/gdd/dialogue-ui.md
+      - design/gdd/save-load-system.md
+      - design/gdd/party-system.md
+    fields: [domain, known_facts, trust_threshold]
+    attaches_to: [Character, NPC]
+    # ⚠️ CONFLICT: EF says field is "trust_threshold"; npc-knowledge-graph.md:225 says "trust_level";
+    #   trust-relationship.md writes "trust_level" into the Knowledge component.
+    #   All three refer to the same field. Resolution needed: pick one name.
+    #   Source GDD (entity-framework.md) is authoritative. Registered as "trust_threshold" per source.
+    conflict_note: "Field named 'trust_threshold' in EF, 'trust_level' in NPC KG and Trust & Relationship. Resolve to single name."
+    added: 2026-08-09
+    revised: ""
 
+  - name: PlayerKnowledge
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/thread-investigation.md
+      - design/gdd/investigation-journal.md
+      - design/gdd/save-load-system.md
+    fields: [discovered_facts (fact_id, source_entity, source_npc_name, thread_id, discovered_at), connection_links]
+    attaches_to: [Player Character only]
+    added: 2026-08-09
+    revised: ""
 
-# ─── CONSTANTS ───────────────────────────────────────────────────────────────
-# Named numerical values referenced across multiple systems.
-# Register a constant when it is defined in one GDD but another GDD must
-# agree with it (e.g., gold carry limit defined in economy but checked in
-# inventory, or base inventory slots defined in inventory but displayed in HUD).
-#
-# Required fields: name, status, source, referenced_by, value, unit, added
+  - name: Faction
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/faction-system.md
+      - design/gdd/party-system.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/save-load-system.md
+    fields: [faction_id, standing]
+    attaches_to: [Character, NPC]
+    write_owner: faction-system
+    added: 2026-08-09
+    revised: ""
 
-constants: []
+  - name: Dialogue
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/dialogue-ui.md
+      - design/gdd/save-load-system.md
+      - design/gdd/party-system.md
+    fields: [greeting, topics, personality_profile]
+    attaches_to: [Character, NPC]
+    added: 2026-08-09
+    revised: ""
 
-# Example:
-#
-# constants:
-#   - name: gold_carry_limit
-#     status: active
-#     source: design/gdd/economy.md
-#     referenced_by:
-#       - design/gdd/economy.md
-#       - design/gdd/inventory.md   # inventory enforces the carry limit
-#       - design/gdd/ui.md          # HUD displays current gold vs limit
-#     value: 9999
-#     unit: gold
-#     added: 2026-03-26
-#     revised: ""
-#
-#   - name: base_inventory_slots
-#     status: active
-#     source: design/gdd/inventory.md
-#     referenced_by:
-#       - design/gdd/inventory.md
-#       - design/gdd/progression.md  # progression unlocks additional slots
-#     value: 20
-#     unit: slots
-#     added: 2026-03-26
-#     revised: ""
+  - name: Combatant
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/tactical-combat-engine.md
+      - design/gdd/combat-ui.md
+      - design/gdd/save-load-system.md
+    fields: [initiative, action_points, movement_points, movement_speed, actions, status_effects, reaction_available]
+    attaches_to: [Character, NPC]
+    write_owner: {status_effects: tactical-combat-engine}
+    added: 2026-08-09
+    revised: ""
+
+  - name: Interactable
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/investigation-journal.md
+      - design/gdd/living-environment.md
+      - design/gdd/save-load-system.md
+    fields: [interaction_type, prompt_text, range, is_once_only]
+    attaches_to: [Character, NPC, Item, Prop, Trigger]
+    added: 2026-08-09
+    revised: ""
+
+  - name: Readable
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/thread-investigation.md
+      - design/gdd/investigation-journal.md
+      - design/gdd/save-load-system.md
+    fields: [content_ref, language, is_translated, discovered_at]
+    attaches_to: [Item, Prop, Structure]
+    added: 2026-08-09
+    revised: ""
+
+  - name: Schedule
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/living-environment.md
+      - design/gdd/save-load-system.md
+    ef_component_id: 12
+    fields: [schedule_entries (start_time, end_time, activity, target_position), current_activity]
+    attaches_to: [NPC]
+    added: 2026-08-09
+    revised: ""
+
+  - name: Persistent
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/persistent-world-state.md
+      - design/gdd/trust-relationship.md
+      - design/gdd/thread-investigation.md
+      - design/gdd/investigation-journal.md
+      - design/gdd/save-load-system.md
+    fields: [state_flags, memory_log, modified_at]
+    attaches_to: [Character, NPC, Wildlife, Structure, Prop]
+    write_owner: {memory_log: entity-framework (append-only)}
+    flag_namespaces:
+      trust: trust-relationship
+      world: persistent-world-state
+      investigation: thread-investigation
+      thread: thread-investigation
+      party: party-system
+    added: 2026-08-09
+    revised: ""
+
+  - name: Visual
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/tactical-combat-engine.md
+      - design/gdd/save-load-system.md
+    fields: [model_ref, animation_state, tint, visibility_flag, render_layer]
+    maps_to: "Kaiju rendering.Drawing"
+    write_owner: {tint: tactical-combat-engine (damage flash via tint stack)}
+    added: 2026-08-09
+    revised: ""
+
+  - name: Audio
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/audio-system.md
+      - design/gdd/save-load-system.md
+    fields: [ambient_sound, footstep_type, occlusion_flag]
+    attaches_to: [entities with sound]
+    added: 2026-08-09
+    revised: ""
+
+  # ── Entity Framework: Lifecycle States ────────────────────────────────────
+  - name: EntityLifecycleState
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/save-load-system.md
+      - design/gdd/tactical-combat-engine.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/persistent-world-state.md
+    states: [Pending, Active, Suspended, Destroyed]
+    suspension_guards: [in active combat, in active dialogue, tagged quest-relevant, player entity]
+    added: 2026-08-09
+    revised: ""
+
+  # ── Entity Framework: InteractionType ─────────────────────────────────────
+  - name: InteractionType
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/investigation-journal.md
+      - design/gdd/living-environment.md
+    values: [talk, loot, read, examine, open, close, use, pick_up, search]
+    owners:
+      talk: ai-dialogue-engine
+      loot: loot-economy
+      read: investigation-journal
+      examine: investigation-journal
+      open: living-environment
+      close: living-environment
+      use: context-dependent
+      pick_up: loot-economy
+      search: investigation
+    # was: loot owner = "inventory-system", pick_up owner = "inventory-system"
+    # revised 2026-08-10 to loot-economy (GDD authored, system #23).
+    added: 2026-08-09
+    revised: ""
+
+  # ── Entity Framework: StatusEffect ────────────────────────────────────────
+  - name: StatusEffect
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/tactical-combat-engine.md
+    fields: [EffectID (string), SourceID (GameEntityID), Duration (int, rounds), StackCount (int), Parameters (map[string]float64)]
+    note: "Detailed behavior deferred to Tactical Combat Engine GDD"
+    added: 2026-08-09
+    revised: ""
+
+  # ── Camera System: Camera States ──────────────────────────────────────────
+  - name: camera_state_exploration
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/save-load-system.md
+    category: base_state
+    priority: 4
+    behavior: "Smooth follow of party centroid; default zoom: Default (10u)"
+    added: 2026-08-09
+    revised: ""
+
+  - name: camera_state_conversation
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+    category: base_state
+    priority: 3
+    behavior: "Frames PC + speaking NPC midpoint; shake disabled; player retains pan/zoom"
+    added: 2026-08-09
+    revised: ""
+
+  - name: camera_state_combat
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+    category: base_state
+    priority: 2
+    behavior: "Frames bounding box of all active combatants once at start; re-frames on reinforcement or turn boundaries"
+    added: 2026-08-09
+    revised: ""
+
+  - name: camera_state_transition
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/asset-scene-pipeline.md
+    category: base_state
+    priority: 1
+    behavior: "Region boundary cross: fade to black (300ms), reposition, fade in; input locked"
+    added: 2026-08-09
+    revised: ""
+
+  - name: camera_state_journal
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+    category: overlay
+    behavior: "Camera holds position while journal overlays; base state preserved"
+    added: 2026-08-09
+    revised: ""
+
+  - name: camera_state_manual
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+    category: overlay_flag
+    behavior: "Set by player pan/edge-scroll; suppresses automated motion; no auto-return; cleared by Center on Party"
+    added: 2026-08-09
+    revised: ""
+
+  # ── Living Environment: Light States ──────────────────────────────────────
+  - name: light_state
+    status: active
+    source: design/gdd/living-environment.md
+    referenced_by:
+      - design/gdd/living-environment.md
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/entity-framework.md
+    states:
+      Dawn: "04:00-07:00"
+      Day: "07:00-17:00"
+      Dusk: "17:00-20:00"
+      Night: "20:00-02:00"
+      Deep Night: "02:00-04:00"
+    transition_duration: "2-5 game min, smooth-step interpolation"
+    added: 2026-08-09
+    revised: ""
+
+  # ── Living Environment: Wildlife ──────────────────────────────────────────
+  - name: wildlife_bird
+    status: active
+    source: design/gdd/living-environment.md
+    referenced_by:
+      - design/gdd/living-environment.md
+      - design/gdd/entity-framework.md
+    activity: "diurnal — active Day, roost Night"
+    audio: "ambient birdsong during Dawn and Day"
+    mesh_budget: "<= 200 tris, no shadows"
+    added: 2026-08-09
+    revised: ""
+
+  - name: wildlife_deer
+    status: active
+    source: design/gdd/living-environment.md
+    referenced_by:
+      - design/gdd/living-environment.md
+      - design/gdd/entity-framework.md
+    activity: "diurnal — grazing forest edges"
+    flee_radius: 8
+    flee_radius_unit: units
+    combat: none
+    drops: none
+    added: 2026-08-09
+    revised: ""
+
+  - name: wildlife_insect
+    status: active
+    source: design/gdd/living-environment.md
+    referenced_by:
+      - design/gdd/living-environment.md
+      - design/gdd/entity-framework.md
+    render: particle-based
+    behavior: "fireflies at Dusk/Night near water; crickets audio at Night"
+    added: 2026-08-09
+    revised: ""
+
+  # ── Living Environment: Rest Points ───────────────────────────────────────
+  - name: rest_point
+    status: active
+    source: design/gdd/living-environment.md
+    referenced_by:
+      - design/gdd/living-environment.md
+      - design/gdd/entity-framework.md
+      - design/gdd/character-stats-progression.md
+      - design/gdd/party-system.md
+    types: [camp, inn, safe_location]
+    health_restore: {inn: 100%, camp: 50%, safe_location: 0%}
+    wait_speed: 100
+    wait_speed_unit: "x (1 game hour = 36 real seconds)"
+    fade_transition_ms: 500
+    added: 2026-08-09
+    revised: ""
+
+  # ── Character Stats: Six Core Attributes ──────────────────────────────────
+  - name: strength
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+      - design/gdd/entity-framework.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/thread-investigation.md
+    abbreviation: STR
+    range: [3, 18]
+    baseline: 10
+    governs_combat: "melee damage bonus, carrying capacity, heavy weapon requirements"
+    governs_social: "physical intimidation, forcing doors/objects"
+    added: 2026-08-09
+    revised: ""
+
+  - name: dexterity
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+      - design/gdd/entity-framework.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/thread-investigation.md
+    abbreviation: DEX
+    range: [3, 18]
+    baseline: 10
+    governs_combat: "action points, turn order, ranged accuracy, dodge/evasion"
+    governs_social: "lockpicking, trap disarming, stealth"
+    added: 2026-08-09
+    revised: ""
+
+  - name: constitution
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+      - design/gdd/entity-framework.md
+      - design/gdd/living-environment.md
+    abbreviation: CON
+    range: [3, 18]
+    baseline: 10
+    governs_combat: "maximum health, health per level, stamina, poison/disease resistance"
+    governs_social: "endurance (travel speed, exhaustion resistance)"
+    added: 2026-08-09
+    revised: ""
+
+  - name: intelligence
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+      - design/gdd/entity-framework.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/thread-investigation.md
+    abbreviation: INT
+    range: [3, 18]
+    baseline: 10
+    governs_combat: "Ley device operation, critical thinking under pressure"
+    governs_social: "contradiction detection, lore comprehension, ancient language translation"
+    added: 2026-08-09
+    revised: ""
+
+  - name: wisdom
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+      - design/gdd/entity-framework.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/thread-investigation.md
+    abbreviation: WIS
+    range: [3, 18]
+    baseline: 10
+    governs_combat: "willpower saves, perception of hidden enemies"
+    governs_social: "insight (lies/omissions), environmental clue detection"
+    added: 2026-08-09
+    revised: ""
+
+  - name: charisma
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+      - design/gdd/entity-framework.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/trust-relationship.md
+    abbreviation: CHA
+    range: [3, 18]
+    baseline: 10
+    governs_combat: "party morale, companion combat bonuses"
+    governs_social: "NPC trust thresholds, persuasion, barter prices"
+    added: 2026-08-09
+    revised: ""
+
+  # ── NPC Knowledge Graph: Facts & Domains ──────────────────────────────────
+  - name: knowledge_fact
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    referenced_by:
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/question-system.md
+      - design/gdd/thread-investigation.md
+      - design/gdd/entity-framework.md
+    fields: [fact_id, domain, type, content, trust_required, references, discovery_triggers, contradicts, leads_to]
+    authoring_format: "YAML .kg files at assets/npc_knowledge/[region]/[npc_id].kg"
+    added: 2026-08-09
+    revised: ""
+
+  - name: fact_type
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    referenced_by:
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/thread-investigation.md
+      - design/gdd/trust-relationship.md
+    values: [FACT, RUMOR, OPINION, SECRET]
+    added: 2026-08-09
+    revised: ""
+
+  - name: discovery_trigger
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    referenced_by:
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/living-environment.md
+      - design/gdd/thread-investigation.md
+      - design/gdd/question-system.md
+    formats: ["player_has_item:<item_id>", "player_visited:<location_id>"]
+    behavior: "fact excluded from AI Dialogue Engine queries until condition met"
+    added: 2026-08-09
+    revised: ""
+
+  # ── NPC Knowledge Graph: 9 Knowledge Domains ──────────────────────────────
+  - name: craft_metallurgy
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    referenced_by:
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/question-system.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/entity-framework.md
+    keywords: [ore, metal, forge, smith, steel, iron, alloy, weapon, armor, blade, bronze, copper, silver]
+    added: 2026-08-09
+    revised: ""
+
+  - name: herbalism_medicine
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    referenced_by:
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/question-system.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/entity-framework.md
+    keywords: [herb, plant, poison, remedy, heal, wound, sickness, poultice, root, fungus]
+    added: 2026-08-09
+    revised: ""
+
+  - name: town_gossip
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    referenced_by:
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/question-system.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/entity-framework.md
+    keywords: [rumor, heard, people, town, happen, strange, recently, anyone, visitor, new]
+    added: 2026-08-09
+    revised: ""
+
+  - name: military_security
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    referenced_by:
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/question-system.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/entity-framework.md
+    keywords: [guard, patrol, attack, defend, danger, threat, safe, wall, gate, weapon, soldier]
+    added: 2026-08-09
+    revised: ""
+
+  - name: old_empire_lore
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    referenced_by:
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/question-system.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/entity-framework.md
+    keywords: [empire, ruin, ancient, old, Ley, imperial, history, past, fallen, technology, machine]
+    added: 2026-08-09
+    revised: ""
+
+  - name: wilderness_survival
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    referenced_by:
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/question-system.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/entity-framework.md
+    keywords: [forest, river, path, animal, beast, track, weather, hunt, forage, camp]
+    added: 2026-08-09
+    revised: ""
+
+  - name: trade_commerce
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    referenced_by:
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/question-system.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/entity-framework.md
+    keywords: [buy, sell, price, gold, trade, merchant, goods, supply, rare, valuable]
+    added: 2026-08-09
+    revised: ""
+
+  - name: faction_politics
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    referenced_by:
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/question-system.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/entity-framework.md
+    keywords: [faction, power, leader, alliance, enemy, rival, politics, control, influence]
+    added: 2026-08-09
+    revised: ""
+
+  - name: personal_history
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    referenced_by:
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/question-system.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/entity-framework.md
+    keywords: [you, your, past, before, born, family, childhood, name, why, how long]
+    added: 2026-08-09
+    revised: ""
+
+  # ── Trust & Relationship: Trust Scale ─────────────────────────────────────
+  - name: trust_level_scale
+    status: active
+    source: design/gdd/trust-relationship.md
+    referenced_by:
+      - design/gdd/trust-relationship.md
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/question-system.md
+      - design/gdd/entity-framework.md
+      - design/gdd/thread-investigation.md
+      - design/gdd/character-stats-progression.md
+      - design/gdd/party-system.md
+    levels:
+      0: "Stranger — facts with trust_required: 0"
+      1: "Acquaintance — facts with trust_required: 0-1"
+      2: "Trusted — facts with trust_required: 0-2; NPC greets by name"
+      3: "Confidant — all facts including SECRETS; NPC may proactively share"
+    max_level: 3
+    # ⚠️ NOTE: max_trust_level (3, range 2-5) appears as a tuning knob in BOTH
+    #   trust-relationship.md and npc-knowledge-graph.md — keep values in sync.
+    added: 2026-08-09
+    revised: ""
+
+  # ── Trust Events ──────────────────────────────────────────────────────────
+  - name: trust_event_thread_resolved
+    status: active
+    source: design/gdd/trust-relationship.md
+    referenced_by:
+      - design/gdd/trust-relationship.md
+      - design/gdd/thread-investigation.md
+    trust_delta: +1
+    condition: "Player resolves an investigation thread involving this NPC"
+    added: 2026-08-09
+    revised: ""
+
+  - name: trust_event_demonstrated_investigation
+    status: active
+    source: design/gdd/trust-relationship.md
+    referenced_by:
+      - design/gdd/trust-relationship.md
+      - design/gdd/npc-knowledge-graph.md
+    trust_delta: +1
+    condition: "Player asks about a topic using knowledge from another NPC"
+    added: 2026-08-09
+    revised: ""
+
+  - name: trust_event_secret_betrayed
+    status: active
+    source: design/gdd/trust-relationship.md
+    referenced_by:
+      - design/gdd/trust-relationship.md
+      - design/gdd/ai-dialogue-engine.md
+    trust_delta: -2
+    condition: "Player shares NPC's secret with someone they wouldn't trust; min 0"
+    added: 2026-08-09
+    revised: ""
+
+  # ── Thread Investigation ──────────────────────────────────────────────────
+  - name: thread
+    status: active
+    source: design/gdd/thread-investigation.md
+    referenced_by:
+      - design/gdd/thread-investigation.md
+      - design/gdd/question-system.md
+      - design/gdd/save-load-system.md
+      - design/gdd/npc-knowledge-graph.md
+    attributes: [thread_id, source, target_entity, topic, status, created_at, chain_id]
+    status_values: [active, prioritized, resolved, dead_end]
+    added: 2026-08-09
+    revised: ""
+
+  # ── AI Dialogue Engine ────────────────────────────────────────────────────
+  - name: npc_llm_model
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    referenced_by:
+      - design/gdd/ai-dialogue-engine.md
+    file: "NPC-LLM-3_8B-Q5_K_M.gguf"
+    parameters: "~3.8B"
+    quantization: Q5_K_M
+    context_window: 2048
+    target_response_time_s: 2
+    added: 2026-08-09
+    revised: ""
+
+  - name: dialogue_prompt
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    referenced_by:
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/question-system.md
+      - design/gdd/trust-relationship.md
+    sections: ["[SYSTEM]", "[FACTS]", "[HISTORY]", "[QUESTION]", "[RESPONSE]"]
+    max_facts_in_prompt: 5
+    history_exchanges: 3
+    max_response_tokens: 200
+    added: 2026-08-09
+    revised: ""
+
+  # ── Question System ───────────────────────────────────────────────────────
+  - name: question_input
+    status: active
+    source: design/gdd/question-system.md
+    referenced_by:
+      - design/gdd/question-system.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/npc-knowledge-graph.md
+    methods: [free_text, topic_suggestions]
+    suggestion_count: "3-6 chips (cap 6)"
+    matching: "keyword overlap + entity reference detection"
+    added: 2026-08-09
+    revised: ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ITEMS
+# ══════════════════════════════════════════════════════════════════════════════
+
+items:
+
+  - name: ley_metal_fragment
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    referenced_by:
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/question-system.md
+    category: investigation_item
+    discovery_trigger_format: "player_has_item:ley_metal_fragment"
+    note: "Inventory definition pending (no inventory GDD yet)."
+    added: 2026-08-09
+    revised: ""
+
+  - name: imperial_lantern
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    referenced_by:
+      - design/gdd/npc-knowledge-graph.md
+    category: item
+    discovery_trigger_format: "player_has_item:imperial_lantern"
+    note: "Distinct from living-environment lantern light-pocket entities. Inventory definition pending."
+    added: 2026-08-09
+    revised: ""
+
+  # ── Loot & Economy: Rarity Tiers ────────────────────────────────────────────
+  - name: item_rarity_tiers
+    status: active
+    source: design/gdd/loot-economy.md
+    referenced_by:
+      - design/gdd/loot-economy.md
+      - design/gdd/character-inventory-ui.md
+    values:
+      Common: {drop_rate: 60, stat_budget: "1-2", value_multiplier: 1, color: Grey}
+      Uncommon: {drop_rate: 25, stat_budget: "3-4", value_multiplier: 2.5, color: Green}
+      Rare: {drop_rate: 10, stat_budget: "5-7", value_multiplier: 5, color: Blue}
+      Epic: {drop_rate: 4, stat_budget: "8-10", value_multiplier: 12, color: Purple}
+      Legendary: {drop_rate: 1, stat_budget: "11-15", value_multiplier: 25, color: Gold}
+    added: 2026-08-10
+    revised: ""
+
+  - name: item_types
+    status: active
+    source: design/gdd/loot-economy.md
+    referenced_by:
+      - design/gdd/loot-economy.md
+      - design/gdd/character-inventory-ui.md
+    values: [Weapon, Armor, Consumable, Quest, CraftingMaterial, Accessory, Readable]
+    added: 2026-08-10
+    revised: ""
+
+  - name: weapon_subtypes
+    status: active
+    source: design/gdd/loot-economy.md
+    referenced_by:
+      - design/gdd/loot-economy.md
+    values: [Sword, Axe, Dagger, Bow, Spear]
+    added: 2026-08-10
+    revised: ""
+
+  - name: armor_subtypes
+    status: active
+    source: design/gdd/loot-economy.md
+    referenced_by:
+      - design/gdd/loot-economy.md
+    values: [Head, Chest, Hands, Legs]
+    added: 2026-08-10
+    revised: ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FORMULAS
+# ══════════════════════════════════════════════════════════════════════════════
+
+formulas:
+
+  # ── Camera System ─────────────────────────────────────────────────────────
+  - name: camera_ground_footprint
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/asset-scene-pipeline.md
+      - design/gdd/living-environment.md
+    expression: "ground_depth = 2*O / sin(theta); ground_width = 2*O*AR"
+    variables:
+      - O (ortho half-height, 2.5-20u)
+      - theta (pitch, fixed 30 deg)
+      - AR (aspect ratio, 1.6-2.333)
+    output_range: ["depth 10-80u", "width 8.9-93.3u"]
+    added: 2026-08-09
+    revised: ""
+
+  - name: camera_follow_move_toward
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+    expression: "step = min(follow_speed * dt, |offset|); position += normalize(offset) * step"
+    variables:
+      - follow_speed (5 u/s default, 2-15 range)
+      - dt (clamped to 100ms max)
+      - offset (target_position - camera_position)
+    output_range: ["step in [0, |offset|] per frame"]
+    added: 2026-08-09
+    revised: ""
+
+  # ── Living Environment ────────────────────────────────────────────────────
+  - name: game_time_formula
+    status: active
+    source: design/gdd/living-environment.md
+    referenced_by:
+      - design/gdd/living-environment.md
+    expression: "game_minutes = real_seconds * time_ratio / 60"
+    variables:
+      - real_seconds (float, any)
+      - time_ratio (int, 5-30)
+    output_range: [any]
+    added: 2026-08-09
+    revised: ""
+
+  # ── Character Stats ───────────────────────────────────────────────────────
+  - name: attribute_modifier
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+      - design/gdd/entity-framework.md
+      - design/gdd/ai-dialogue-engine.md
+    expression: "floor((attribute - 10) / 2), clamped [-4, +4]"
+    variables:
+      - attribute (int, 3-18)
+    output_range: [-4, 4]
+    added: 2026-08-09
+    revised: ""
+
+  - name: max_health
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+      - design/gdd/living-environment.md
+      - design/gdd/entity-framework.md
+    expression: "20 + (CON * 2) + (Level * CON_mod) at level 1; +max(1, CON_mod) per level"
+    variables:
+      - CON (int, 3-18)
+      - CON_mod (int, -4..+4)
+      - Level (int, 1-20)
+    output_range: [26, 156]
+    added: 2026-08-09
+    revised: ""
+
+  - name: action_points
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+      - design/gdd/entity-framework.md
+    expression: "4 + DEX_modifier (minimum 2)"
+    variables:
+      - DEX_modifier (int, -4..+4)
+    output_range: [2, 8]
+    added: 2026-08-09
+    revised: ""
+
+  - name: initiative
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+      - design/gdd/entity-framework.md
+    expression: "DEX_modifier + WIS_modifier"
+    variables:
+      - DEX_modifier (int, -4..+4)
+      - WIS_modifier (int, -4..+4)
+    output_range: [-8, 8]
+    added: 2026-08-09
+    revised: ""
+
+  - name: xp_to_next_level
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+    expression: "Level * 300"
+    variables:
+      - Level (int, 1-20)
+    output_range: [300, 6000]
+    added: 2026-08-09
+    revised: ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CONSTANTS
+# ══════════════════════════════════════════════════════════════════════════════
+
+constants:
+
+  # ── Entity Framework ──────────────────────────────────────────────────────
+  - name: priority_direction
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+    value: "1 = highest priority"
+    unit: "lower number wins"
+    added: 2026-08-09
+    revised: ""
+
+  - name: spatial_distance_metric
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/tactical-combat-engine.md
+      - design/gdd/living-environment.md
+      - design/gdd/map-system.md
+      - design/gdd/camera-system.md
+    value: "2D Euclidean in XZ plane; Y (elevation) ignored for range"
+    unit: world units
+    added: 2026-08-09
+    revised: ""
+
+  - name: float_round_trip_tolerance
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/save-load-system.md
+    value: 1e-5
+    unit: relative tolerance
+    applies_to: save/load float32 equality for position/rotation
+    added: 2026-08-09
+    revised: ""
+
+  - name: suspension_distance
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/living-environment.md
+      - design/gdd/camera-system.md
+    value: 100
+    unit: world units
+    safe_range: [50, 300]
+    added: 2026-08-09
+    revised: ""
+
+  - name: spatial_bucket_size
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+    value: 32
+    unit: world units
+    safe_range: [16, 128]
+    added: 2026-08-09
+    revised: ""
+
+  - name: serialization_budget_save
+    status: active
+    source: design/gdd/entity-framework.md
+    referenced_by:
+      - design/gdd/entity-framework.md
+      - design/gdd/save-load-system.md
+    value: 100
+    unit: ms p95 (2500 entities, all 15 component types)
+    added: 2026-08-09
+    revised: ""
+
+  # ── Camera System ─────────────────────────────────────────────────────────
+  - name: zoom_level_close
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+    value: 4
+    unit: "u (ortho half-height)"
+    use: "Character detail, indoor conversations, inspecting environmental clues"
+    added: 2026-08-09
+    revised: ""
+
+  - name: zoom_level_default
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/asset-scene-pipeline.md
+      - design/gdd/save-load-system.md
+    value: 10
+    unit: "u (ortho half-height)"
+    use: "Standard exploration, outdoor conversation, default combat"
+    added: 2026-08-09
+    revised: ""
+
+  - name: zoom_level_far
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/living-environment.md
+    value: 20
+    unit: "u (ortho half-height)"
+    use: "Region overview, travel planning, large encounters"
+    added: 2026-08-09
+    revised: ""
+
+  - name: camera_pitch_angle
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/asset-scene-pipeline.md
+    value: 30
+    unit: degrees from horizontal
+    added: 2026-08-09
+    revised: ""
+
+  - name: camera_yaw_angle
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/asset-scene-pipeline.md
+    value: 45
+    unit: degrees from cardinal axes
+    added: 2026-08-09
+    revised: ""
+
+  - name: follow_speed_exploration
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+    value: 5
+    unit: units/s
+    safe_range: [2, 15]
+    note: "Must exceed party walk speed (pending movement GDD)"
+    added: 2026-08-09
+    revised: ""
+
+  - name: zoom_transition_duration
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/main-menu-and-settings.md
+    value: 300
+    unit: ms
+    safe_range: [150, 600]
+    added: 2026-08-09
+    revised: ""
+
+  - name: occluder_fade_alpha
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+    value: 0.20
+    unit: alpha (15-25% target range)
+    added: 2026-08-09
+    revised: ""
+
+  - name: reduce_camera_motion
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/main-menu-and-settings.md
+    value: "Off | Reduced | Disabled"
+    unit: setting level
+    default: Reduced
+    added: 2026-08-09
+    revised: ""
+
+  - name: camera_position_rule
+    status: active
+    source: design/gdd/save-load-system.md
+    referenced_by:
+      - design/gdd/save-load-system.md
+      - design/gdd/camera-system.md
+    # ⚠️ CONFLICT: save-load-system.md:129 says "camera resets to party centroid on load."
+    #   save-load-system.md:197 says "Load places camera at saved party position."
+    #   camera-system.md CR-2 says "On save/load, the current zoom level is restored."
+    #   camera-system.md Player Fantasy says "camera stays where the player leaves it."
+    #   The save-load GDD contradicts itself (two different rules) and contradicts the camera
+    #   GDD (which says position + zoom restored). Resolution needed.
+    value: "CONFLICT"
+    conflict_note: "save-load-system has two contradictory rules (centroid reset vs saved position). camera-system says position + zoom restored. Source GDD (save-load-system) is authoritative per registry but needs revision. Camera GDD revision (pending) restores position + zoom. Registered as conflict until save-load GDD is reconciled."
+    added: 2026-08-09
+    revised: ""
+
+  # ── Living Environment ────────────────────────────────────────────────────
+  - name: time_ratio
+    status: active
+    source: design/gdd/living-environment.md
+    referenced_by:
+      - design/gdd/living-environment.md
+    value: 10
+    unit: game minutes per real minute
+    safe_range: [5, 30]
+    added: 2026-08-09
+    revised: ""
+
+  - name: game_clock_start_time
+    status: active
+    source: design/gdd/living-environment.md
+    referenced_by:
+      - design/gdd/living-environment.md
+    value: "08:00"
+    unit: game time (24h), light state = Day
+    added: 2026-08-09
+    revised: ""
+
+  - name: max_wildlife_per_region
+    status: active
+    source: design/gdd/living-environment.md
+    referenced_by:
+      - design/gdd/living-environment.md
+      - design/gdd/entity-framework.md
+    value: 30
+    unit: entities per region
+    added: 2026-08-09
+    revised: ""
+
+  - name: wildlife_density
+    status: active
+    source: design/gdd/living-environment.md
+    referenced_by:
+      - design/gdd/living-environment.md
+      - design/gdd/entity-framework.md
+    value: 0.3
+    unit: fraction of spawn points
+    safe_range: [0.1, 0.8]
+    added: 2026-08-09
+    revised: ""
+
+  # ── Character Stats ───────────────────────────────────────────────────────
+  - name: attribute_range
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/entity-framework.md
+    value: "3-18 (baseline 10)"
+    unit: attribute points
+    added: 2026-08-09
+    revised: ""
+
+  - name: level_cap
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+      - design/gdd/party-system.md
+    value: 20
+    unit: levels
+    safe_range: [10, 30]
+    added: 2026-08-09
+    revised: ""
+
+  - name: xp_per_thread_hop
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+      - design/gdd/thread-investigation.md
+    value: 100
+    unit: XP per thread_complexity hop
+    safe_range: [50, 200]
+    added: 2026-08-09
+    revised: ""
+
+  - name: xp_per_trust_level
+    status: active
+    source: design/gdd/character-stats-progression.md
+    referenced_by:
+      - design/gdd/character-stats-progression.md
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/trust-relationship.md
+    value: 50
+    unit: XP per trust_level_achieved
+    added: 2026-08-09
+    revised: ""
+
+  # ── AI Dialogue Engine ────────────────────────────────────────────────────
+  - name: conversation_history_length
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    referenced_by:
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/question-system.md
+    value: 3
+    unit: exchanges
+    safe_range: [1, 5]
+    note: "AI 'history_exchanges' and QS 'conversation_history_length' both default to 3 — must stay in sync."
+    added: 2026-08-09
+    revised: ""
+
+  - name: max_facts_in_prompt
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    referenced_by:
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/question-system.md
+    value: 5
+    unit: facts
+    safe_range: [3, 10]
+    added: 2026-08-09
+    revised: ""
+
+  - name: target_response_time
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    referenced_by:
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/question-system.md
+    value: 2
+    unit: seconds (90% of queries)
+    note: "Inference timeout at 5s; text fallback engages above threshold."
+    added: 2026-08-09
+    revised: ""
+
+  # ── Trust & Relationship ──────────────────────────────────────────────────
+  - name: max_trust_level
+    status: active
+    source: design/gdd/trust-relationship.md
+    referenced_by:
+      - design/gdd/trust-relationship.md
+      - design/gdd/npc-knowledge-graph.md
+      - design/gdd/ai-dialogue-engine.md
+      - design/gdd/character-stats-progression.md
+    value: 3
+    unit: trust levels (0-3)
+    safe_range: [2, 5]
+    # ⚠️ NOTE: Duplicate tuning knob — same name and default (3) appears in both
+    #   trust-relationship.md and npc-knowledge-graph.md. Keep values in sync.
+    added: 2026-08-09
+    revised: ""
+
+  - name: trust_freeze_duration_hours
+    status: active
+    source: design/gdd/trust-relationship.md
+    referenced_by:
+      - design/gdd/trust-relationship.md
+    value: 72
+    unit: game hours (~7 real hours)
+    safe_range: [24, 168]
+    added: 2026-08-09
+    revised: ""
+
+  # ── Save/Load System ──────────────────────────────────────────────────────
+  - name: save_slot_count
+    status: active
+    source: design/gdd/save-load-system.md
+    referenced_by:
+      - design/gdd/save-load-system.md
+      - design/gdd/main-menu-and-settings.md
+    value: 22
+    unit: slots (20 manual + 1 auto-save + 1 quicksave)
+    added: 2026-08-09
+    revised: ""
+
+  # ── Loot & Economy ──────────────────────────────────────────────────────────
+  - name: sell_price_ratio
+    status: active
+    source: design/gdd/loot-economy.md
+    referenced_by:
+      - design/gdd/loot-economy.md
+      - design/gdd/character-inventory-ui.md
+    value: 0.25
+    unit: fraction of base value
+    safe_range: [0.10, 0.50]
+    added: 2026-08-10
+    revised: ""
+
+  - name: price_floor_ratio
+    status: active
+    source: design/gdd/loot-economy.md
+    referenced_by:
+      - design/gdd/loot-economy.md
+    value: 0.25
+    unit: fraction of base value (hard floor for buy price)
+    safe_range: [0.10, 0.50]
+    added: 2026-08-10
+    revised: ""
+
+  - name: weapon_damage_scale
+    status: active
+    source: design/gdd/loot-economy.md
+    referenced_by:
+      - design/gdd/loot-economy.md
+      - design/gdd/tactical-combat-engine.md
+    value: 3.5
+    unit: damage per region tier
+    safe_range: [2.5, 4.5]
+    added: 2026-08-10
+    revised: ""
+
+  - name: weapon_damage_spread
+    status: active
+    source: design/gdd/loot-economy.md
+    referenced_by:
+      - design/gdd/loot-economy.md
+    value: 2
+    unit: ± damage from midpoint per tier
+    safe_range: [1, 3]
+    added: 2026-08-10
+    revised: ""
+
+  - name: id_cost_base
+    status: active
+    source: design/gdd/loot-economy.md
+    referenced_by:
+      - design/gdd/loot-economy.md
+    value: 25
+    unit: gold × rarity_tier × region_tier
+    safe_range: [10, 50]
+    added: 2026-08-10
+    revised: ""
+
+  - name: barter_cha_per_mod
+    status: active
+    source: design/gdd/loot-economy.md
+    referenced_by:
+      - design/gdd/loot-economy.md
+      - design/gdd/character-stats-progression.md
+    value: 0.05
+    unit: price reduction per CHA modifier point
+    safe_range: [0.03, 0.08]
+    added: 2026-08-10
+    revised: ""
+
+  # ── Colors (art bible, referenced by multiple GDDs) ───────────────────────
+  - name: color_amber_gold
+    status: active
+    source: design/art/art-bible.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/trust-relationship.md
+    value: "#D9A441"
+    unit: hex (family: #F0C060 / #D9A441 / #A8742C)
+    added: 2026-08-09
+    revised: ""
+
+  - name: color_thread_red
+    status: active
+    source: design/art/art-bible.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/npc-knowledge-graph.md
+    value: "#C4483A"
+    unit: hex (family: #C4483A / #A63A32 / #6E2420)
+    added: 2026-08-09
+    revised: ""
+
+  - name: color_pale_ivory
+    status: active
+    source: design/art/art-bible.md
+    referenced_by:
+      - design/gdd/camera-system.md
+    value: "#E9E6DC"
+    unit: hex (family: #F2F0E8 / #E9E6DC / #D8D4C8)
+    # ⚠️ NOTE: camera-system.md CR-8 specifies pale ivory for interactable highlight.
+    #   Camera GDD revision (pending) changes this to parchment #E3D5B0 per art-bible
+    #   rationing rule (ivory is reserved for empire-significant relics). Until the
+    #   camera revision is written to disk, the source-of-truth camera GDD says ivory.
+    #   Post-revision, this entry should be updated to parchment #E3D5B0.
+    note: "Used for interactable highlight per current camera-system.md. Pending revision changes to parchment #E3D5B0."
+    added: 2026-08-09
+    revised: ""
+
+  - name: color_parchment
+    status: active
+    source: design/art/art-bible.md
+    referenced_by:
+      - design/gdd/camera-system.md
+    value: "#E3D5B0"
+    unit: hex
+    note: "UI surface color. Will replace pale ivory for interactable highlight per pending camera GDD revision."
+    added: 2026-08-09
+    revised: ""

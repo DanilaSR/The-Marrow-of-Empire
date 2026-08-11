@@ -5,14 +5,15 @@ Each agent owns a specific domain, enforcing separation of concerns and quality.
 
 ## Technology Stack
 
-- **Engine**: [CHOOSE: Godot 4 / Unity / Unreal Engine 5]
-- **Language**: [CHOOSE: GDScript / C# / C++ / Blueprint]
+- **Engine**: Kaiju Engine (custom, Go/Vulkan, nightly 26.07.29.1)
+- **Language**: Go
 - **Version Control**: Git with trunk-based development
-- **Build System**: [SPECIFY after choosing engine]
-- **Asset Pipeline**: [SPECIFY after choosing engine]
+- **Build System**: Go build with CGO + build tags (editor, debug, filedrop, rawsrc)
+- **Asset Pipeline**: Kaiju Engine import system + KitBash3D Dark Fantasy (FBX/OBJ import)
 
-> **Note**: Engine-specialist agents exist for Godot, Unity, and Unreal with
-> dedicated sub-specialists. Use the set matching your engine.
+> **Note**: Kaiju Engine is a custom engine. The `kaijuengine-game-dev` skill and
+> `kaiju/AGENTS.md` serve as the primary engine reference. Standard engine-specialist
+> agents (Godot, Unity, Unreal) are NOT used for this project.
 
 ## Project Structure
 
@@ -20,7 +21,7 @@ Each agent owns a specific domain, enforcing separation of concerns and quality.
 
 ## Engine Version Reference
 
-@docs/engine-reference/godot/VERSION.md
+@docs/engine-reference/kaiju/VERSION.md
 
 ## Technical Preferences
 

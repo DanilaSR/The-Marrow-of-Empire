@@ -1,7 +1,7 @@
 # Story 004: Write Arbitration
 
 > **Epic**: Entity Framework
-> **Status**: Ready
+> **Status**: Complete
 > **Last Updated**: 2026-08-10
 > **Layer**: Foundation
 > **Type**: Logic
@@ -65,3 +65,10 @@ From ADR-0001: Each component field tracks its last writer (system name + priori
 | AC-1 | `test_priority_resolution_lower_wins` | Priority-5 write wins over priority-15 write; loser receives error |
 | AC-2 | `test_equal_priority_last_writer_wins` | Same priority, last write applied, no warning |
 | AC-3 | `test_uncontested_write_passthrough` | Single writer: no arbitration overhead, value applied directly |
+
+## Completion Notes
+**Completed**: 2026-08-10
+**Criteria**: 3/3 passing (+5 edge-case tests)
+**Deviations**: Immediate-apply instead of staged-commit (preserves AC semantics, zero overhead for uncontested); `SetComponentArbitrated` as package-level function (Go no generic methods); priority < 1 rejected
+**Test Evidence**: `tests/unit/entity/write_arbitration_test.go` — 8 test functions, all passing; 22 pre-existing tests also pass (zero regressions)
+**Code Review**: Skipped (Lean mode — user confirmed review before sprint close-out)

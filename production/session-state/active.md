@@ -1,6 +1,263 @@
 # Session State
 
-*Updated: 2026-08-10*
+*Updated: 2026-08-11*
+
+## Session Extract — /story-done AI-DIALOGUE-005 2026-08-11
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/ai-dialogue-engine/story-005-tiered-routing-tiny-cgo.md — Tiered Routing & Tiny Model CGo Backend
+- Tech debt logged: None (advisory: stub CGo generation, reload-after-panic deferred, full→fast fallback per ADR tension)
+- Code review: APPROVED WITH SUGGESTIONS — 7 fixes applied
+- Test suite: 44 tests, all PASS, go vet clean
+- AI Dialogue Engine epic: 5/5 Complete ✅
+- Next recommended: Dialogue UI epic (state machine events consumed by UI) or remaining open epics
+
+## Session Extract — /dev-story AI-DIALOGUE-005 2026-08-11
+- Story: production/epics/ai-dialogue-engine/story-005-tiered-routing-tiny-cgo.md — Tiered Routing & Tiny Model CGo Backend
+- Files created: src/ai_dialogue/query_classifier.go, src/ai_dialogue/tiered_backend.go, src/ai_dialogue/tiny_cgo_backend.go
+- Test written: tests/integration/ai_dialogue/tiered_backend_test.go (17 new tests)
+- Test suite: 44 tests all PASS, go vet clean, go build OK
+- Blockers: None
+- Deviations: TinyCGoBackend uses stub generation — real CGo llama.cpp bindings not yet available (noted in TODO markers)
+- Next: /code-review src/ai_dialogue/query_classifier.go src/ai_dialogue/tiered_backend.go src/ai_dialogue/tiny_cgo_backend.go then /story-done
+
+## Session Extract — /story-done AI-DIALOGUE-004 2026-08-11
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/ai-dialogue-engine/story-004-state-machine-degradation-memory.md — State Machine, Degradation & Conversation Memory
+- Tech debt logged: None (advisory: TextFallbackGenerator unwired, PWS integration deferred, hardcoded config constants)
+- Code review: CHANGES REQUIRED → 2 blocking bugs fixed (generation token ABA race, timeout classification), 2 regression tests added
+- Test suite: 27 tests, all PASS, race-detector clean, go vet clean
+- Next recommended: AI-DIALOGUE-005 (Tiered Routing & Tiny CGo) or Dialogue UI epic (state machine events consumed by UI)
+
+## Session Extract — /story-done thread-investigation-001 2026-08-11
+- Verdict: COMPLETE
+- Story: production/epics/thread-investigation/story-001-thread-data-model-auto-creation.md — Thread Data Model & Auto-Creation
+- Tech debt logged: None
+- Test suite: 23 tests, all PASS, benchmark ~8µs/op
+- Code review: APPROVED WITH SUGGESTIONS (lead-programmer + qa-tester)
+- Next recommended: THREAD-002 (Auto-Chaining & Entity Overlap) — now unblocked
+
+## Session Extract — /dev-story thread-investigation-002 2026-08-11
+- Story: production/epics/thread-investigation/story-002-auto-chaining-entity-overlap.md — Auto-Chaining & Entity Overlap
+- Agent: gameplay-programmer (background)
+- Dependencies: Story 001 (Complete), ADR-0010 (Accepted)
+- Files modified: src/thread_investigation/types.go (+OverlapFlag, +ChainStatusArchived), src/thread_investigation/events.go (+chain event types + ChainEvent envelope), src/thread_investigation/engine.go (+Step 3/3b, entityChainIndex, DrainChainEvents, GetOverlapFlags, WithAutoChainMerge)
+- Files created: tests/unit/thread_investigation/auto_chaining_test.go (15 tests)
+- Story 001 legacy: thread_creation_test.go updated — 23 tests pass with ChainID assertions adapted
+- Total suite: 38 tests, all PASS, go vet clean
+- Blockers: None
+- Next: /code-review src/thread_investigation/ then /story-done
+
+## Session Extract — /dev-story thread-investigation-001 2026-08-11
+- Story: production/epics/thread-investigation/story-001-thread-data-model-auto-creation.md — Thread Data Model & Auto-Creation
+- Agent: gameplay-programmer (background)
+- Dependencies verified: KG-001 (Complete), KG-005 (Complete), EF-001 (Complete), EF-002 (Complete), ADR-0010 (Accepted)
+- Manifest versions match: story 2026-08-09 = current 2026-08-09
+- Files created: src/thread_investigation/types.go, src/thread_investigation/events.go, src/thread_investigation/engine.go
+- Test file: tests/unit/thread_investigation/thread_creation_test.go (11 tests, all PASS, benchmark=6.9µs/op — ~290× under 2ms budget)
+- go vet: clean
+- Blockers: None
+- Next: /code-review src/thread_investigation/ then /story-done
+
+## Session Extract — /dev-story AI-DIALOGUE-004 2026-08-11
+- Story: production/epics/ai-dialogue-engine/story-004-state-machine-degradation-memory.md — State Machine, Degradation & Conversation Memory
+- Files created: src/ai_dialogue/clock.go, src/ai_dialogue/conversation_memory.go, src/ai_dialogue/text_fallback.go, src/ai_dialogue/state_machine.go
+- Test written: tests/integration/ai_dialogue/state_machine_test.go (24 new + 4 existing = 27 total, all PASS, race-detector clean, go vet clean)
+- Blockers: None
+- Next: /code-review src/ai_dialogue/state_machine.go src/ai_dialogue/conversation_memory.go src/ai_dialogue/text_fallback.go src/ai_dialogue/clock.go then /story-done
+
+## Session Extract — /story-done AI-DIALOGUE-003 2026-08-11
+- Verdict: COMPLETE
+- Story: production/epics/ai-dialogue-engine/story-003-response-post-processor.md — Response Post-Processor
+- Files created: src/ai_dialogue/response_processor.go (483 lines), tests/unit/ai_dialogue/response_processor_test.go (416 lines)
+- Code review: CHANGES REQUIRED → 3 fixes applied (ReplaceAll word-boundary bug, AllNames hoisting, ProcessResponse complexity reduction, deadband test corrected)
+- Test suite: 25 tests, all PASS
+- Known deferrals: multi-word n-gram matching, pronoun/role substitution → later story (documented in header)
+- AC-13 scope note: NeedsRetry flag emitted; actual re-query orchestration is Story 004
+- Next recommended: AI-DIALOGUE-004 (State Machine Orchestration) — now unblocked
+
+## Session Extract — /dev-story 2026-08-11
+- Story: production/epics/dialogue-ui/story-001-dialogue-panel-framework.md — Dialogue Panel Framework & Lifecycle
+- Files created: src/dialogue_ui/panel.go, src/dialogue_ui/state.go, src/dialogue_ui/input_handler.go
+- Test written: tests/integration/dialogue_ui/panel_framework_test.go (16 tests, all PASS)
+- Blockers: None
+- Deviations: Body text at 16px reference scales to 10.67px at 720p (below 12px minimum) — needs height-based font scaling with floor, deferred to font system story
+- Next: /code-review src/dialogue_ui/ then /story-done production/epics/dialogue-ui/story-001-dialogue-panel-framework.md
+
+## Session Extract — /story-done C&I UI 001 2026-08-11
+- Verdict: COMPLETE
+- Story: production/epics/character-inventory-ui/story-001-character-sheet-display.md — Character Sheet Stat Display
+- Tech debt logged: None (advisory: screenshot evidence pending, tween duplication noted)
+- Code review: APPROVED WITH SUGGESTIONS (lead-programmer + qa-tester)
+- Test suite: 4 tests, all PASS
+- C&I UI epic: 1/9 Complete
+- Next recommended: C&I UI 002 (XP Progress Bar & Level-Up Modal) — depends on Story 001 ✅
+
+## Session Extract — /dev-story C&I UI 001 2026-08-11
+- Story: production/epics/character-inventory-ui/story-001-character-sheet-display.md — Character Sheet Stat Display
+- Agent: ui-programmer (background)
+- Files created: src/character_sheet/sheet.go, src/character_sheet/slide.go, assets/ui/character_sheet.html, tests/unit/character_sheet/sheet_test.go
+- Test results: 4/4 PASS, go vet clean
+- Design decisions: bar fill = value/18 (satisfies AC-3 2.0 ratio), U+2212 minus sign, pure display functions for engine-free testing
+- Blockers: None
+- Manual evidence needed: screenshot at production/qa/evidence/story-001-character-sheet-display-evidence.md
+- Next: /code-review src/character_sheet/ tests/unit/character_sheet/ then /story-done
+
+## Session Extract — /dev-story 2026-08-11
+- Story: production/epics/dialogue-ui/story-001-dialogue-panel-framework.md — Dialogue Panel Framework & Lifecycle
+- Agent: ui-programmer (background, ID: a617d30e462aba3cc)
+- Dependencies verified: None (first story in epic), ADR-0012 (Accepted), manifest v2026-08-09 match
+- Files expected: src/dialogue_ui/panel.go, tests/integration/dialogue_ui/panel_framework_test.go
+- Blockers: None
+- Next: /code-review then /story-done
+
+## Session Extract — /story-done STAT-005 2026-08-11
+- Verdict: COMPLETE
+- Story: production/epics/character-stats-progression/story-005-stats-component-integration.md — Stats Component Integration
+- Tech debt logged: None (entity.Stats retirement planned in agent memory)
+- Code review: APPROVED WITH SUGGESTIONS — all 4 fixes applied (comment dedup, xp≤0 test, event contract, entity.Stats plan)
+- Test suite: 8 integration tests, all PASS
+- Character Stats epic: 5/5 Complete ✅
+- Next recommended: C&I UI Story 001 — fully unblocked (all 5 Stats stories Complete)
+
+## Session Extract — /dev-story 2026-08-11 (AI Dialogue Engine — Prompt Builder)
+- Story: production/epics/ai-dialogue-engine/story-002-prompt-builder.md — Prompt Builder
+- Agent: ai-programmer (a8bc95ab17d115da6)
+- Files created: src/ai_dialogue/prompt_builder.go (756 lines), tests/unit/ai_dialogue/prompt_builder_test.go (817 lines)
+- Test: 21/21 PASS, p95=412µs (12× under 5ms budget), go vet clean
+- Bugs found & fixed: factTier panic on empty MatchedDomains, AC-2 test counted IDs not content
+- Design decisions: 495+marker char cap, IsFallback guard for tier-4 routing, EstimateTokens MVP (word-count, 4/3 ratio)
+- Blockers: None
+- Next: /code-review src/ai_dialogue/prompt_builder.go then /story-done
+
+## Session Extract — /dev-story STAT-005 2026-08-11
+- Story: production/epics/character-stats-progression/story-005-stats-component-integration.md — Stats Component Integration
+- Agent: gameplay-programmer (background)
+- Files created: src/stats/component.go, src/stats/events.go, tests/integration/stats/stats_integration_test.go
+- Design decision: AwardXPAndNotify bridge (not inline event in AwardXP) — keeps stats pure-math
+- Test results: 7/7 PASS (integration), full unit suite PASS (no regressions), go vet clean
+- Cross-package: entity, knowledge, save-load integration tests all PASS
+- Existing files untouched: attributes.go, xp.go, creation.go
+- Blockers: None
+- Next: /code-review src/stats/component.go src/stats/events.go tests/integration/stats/stats_integration_test.go then /story-done
+- Then: C&I UI Story 001 fully unblocked
+
+## Session Extract — /story-done STAT-003 2026-08-11
+- Verdict: COMPLETE
+- Story: production/epics/character-stats-progression/story-003-character-creation.md — Character Creation
+- Tech debt logged: None
+- Code review: APPROVED WITH SUGGESTIONS (lead-programmer + qa-tester)
+- Test suite: 7 tests, all PASS
+- Next recommended: STAT-005 (Stats Component Integration) — now unblocked, then C&I UI Story 001
+
+## Session Extract — /dev-story STAT-003 2026-08-11
+- Story: production/epics/character-stats-progression/story-003-character-creation.md — Character Creation
+- Agent: gameplay-programmer (background)
+- Files created: src/stats/creation.go, tests/unit/stats/creation_test.go
+- Test results: 7/7 PASS, go vet clean
+- Blockers: None
+- Next: /code-review src/stats/creation.go tests/unit/stats/creation_test.go then /story-done production/epics/character-stats-progression/story-003-character-creation.md
+- Then: STAT-005 (Stats Component Integration) unblocks → C&I UI Story 001
+
+## Session Extract — /dev-story 2026-08-11 (Trust & Relationship)
+- Story: production/epics/trust-relationship/story-001-trust-levels-events.md — Trust Levels & Trust Events
+- Agent: gameplay-programmer (adbe36499af786d68)
+- Files created: src/trust_relationship/ (types.go, events.go, trust_system.go)
+- Test: tests/unit/trust_relationship/trust_events_test.go — 18/18 PASS, go vet clean
+- Design decisions: float64 game-minutes, record-all apply-highest, CR-5 caps in Config, priority-1 EventBus
+- Refinements: sequential gain downgrade guard, one-time-per-thread check ordering
+- Blockers: None
+- Next: /code-review src/trust_relationship/ then /story-done
+
+## Session Extract — /story-done 2026-08-11 (Combat Engine — Sprint 5)
+- Verdict: COMPLETE WITH NOTES (Story 002)
+- Story: production/epics/tactical-combat-engine/story-002-grid-movement-ap-economy.md — Grid Movement & AP Economy
+- Tech debt logged: None (W1-W3 advisory — AP config drift, nil-pool, formula duplication)
+- Code review: APPROVED WITH SUGGESTIONS (lead-programmer + qa-tester)
+- Test suite: 14 unit + 23 integration, all PASS
+- Sprint 5 Must Have: COMBAT-001 ✅, COMBAT-002 ✅ — both done
+- Next recommended: COMBAT-003 (Attack Resolution d20) — now unblocked; COMBAT-004 (Positioning) also unblocked
+
+## Session Extract — /story-done 2026-08-11 (Question System)
+- Verdict: COMPLETE
+- Story: production/epics/question-system/story-001-topic-matcher-domain-scoring.md — Topic Matcher & Domain Scoring
+- Tech debt logged: None (advisory: entity-bonus reading of AC-1, FromContext field extension)
+- Code review: APPROVED
+- Test suite: 21 tests, all PASS, p95=157µs
+- Next recommended: Q-002 (Question Input & State Machine) — depends on Thread Investigation epic (stories not yet created)
+
+## Session Extract — /dev-story 2026-08-11 (Question System)
+- Story: production/epics/question-system/story-001-topic-matcher-domain-scoring.md — Topic Matcher & Domain Scoring
+- Agent: gameplay-programmer (a3ada85901a0ace18)
+- Files created: src/question_system/ (types.go, matcher.go, keywords.go)
+- Test: tests/unit/question_system/topic_matcher_test.go — 21/21 PASS, go vet clean
+- Performance: p95 = 142µs (35× under 5ms budget)
+- Design decisions: entity-bonus reading of AC-1 ("old mine" as location entity), FromContext field on DomainScore, EventQuestionMatched constant
+- Pre-existing failure: tests/unit/combat/grid_movement_test.go:448 (syntax error, unrelated)
+- Blockers: None
+- Next: /code-review src/question_system/ then /story-done
+
+## Session Extract — /story-done 2026-08-11 (AI Dialogue Engine)
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/ai-dialogue-engine/story-001-llm-backend-ipc.md — LLM Backend Interface & IPC Subprocess
+- Tech debt logged: None (advisory: ADR-0008 degradation table drift vs GDD CR-5)
+- Code review: CHANGES REQUIRED → 3 fixes applied (restart-during-shutdown leak, SIGTERM alignment, nil-err guards)
+- Test suite: 4 tests, all PASS, -race clean
+- Next recommended: AI-DIALOGUE-002 (Prompt Builder) — now unblocked. Note: depends on Question System and Trust & Relationship epics having stories created.
+
+## Session Extract — /story-done 2026-08-11 (Audio System)
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/audio-system/story-001-audio-engine-foundation.md — Audio Engine Foundation & Spatial Listener
+- Tech debt logged: None (advisory: AC-5 hot-unplug deferred — engine limitation)
+- Code review: APPROVED WITH SUGGESTIONS (lead-programmer + qa-tester)
+- Test suite: 14 tests, all PASS
+- Next recommended: AUDIO-002 (Ambient Soundscapes) — now unblocked
+
+## Session Extract — /story-done 2026-08-11 (Combat Engine)
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/tactical-combat-engine/story-001-combat-state-machine-initiative.md — Combat State Machine & Initiative
+- Tech debt logged: None (advisory: ADR-0011 event drift + Manager ISP)
+- Code review: APPROVED WITH SUGGESTIONS (lead-programmer + qa-tester)
+- Test suite: 31 test runs, all PASS
+- Next recommended: COMBAT-002 (Grid Movement & AP Economy) — now unblocked
+
+## Session Extract — /dev-story 2026-08-11 (Audio System)
+- Story: production/epics/audio-system/story-001-audio-engine-foundation.md — Audio Engine Foundation & Spatial Listener
+- Agent: gameplay-programmer (background, ID: a41120b63b315ee45)
+- Files created: src/audio/ (audio.go, backend.go, bootstrap.go, config.go, listener.go, loader.go), tests/integration/audio/audio_foundation_test.go
+- Test results: 14/14 PASS (0.023s), package compiles clean
+- Engine gap documented: Kaiju Go bindings don't expose SoLoud 3D API (SpatialSink interface ready for engine patch)
+- Blockers: None
+- Next: /code-review src/audio/ then /story-done production/epics/audio-system/story-001-audio-engine-foundation.md
+
+## Session Extract — /dev-story 2026-08-11 (Combat Engine)
+- Story: production/epics/tactical-combat-engine/story-001-combat-state-machine-initiative.md — Combat State Machine & Initiative
+- Agent: gameplay-programmer (a85d30e37645327ae)
+- Files created: src/combat/ (combat.go, events.go, initiative.go, enemy_ai.go, config.go — 1035 lines)
+- Test: tests/integration/combat/state_machine_test.go — 24/24 PASS, go vet clean
+- Bugs found & fixed: RemoveCombatant TurnEnded emission order; flee test expectation; perf test round count
+- Deviations: IsCombatActive() save gating not wired (cross-domain — save epic owns it)
+- Blockers: None
+- Next: /code-review src/combat/ then /story-done
+
+## Session Extract — /dev-story 2026-08-11 (AI Dialogue Engine)
+- Story: production/epics/ai-dialogue-engine/story-001-llm-backend-ipc.md — LLM Backend Interface & IPC Subprocess
+- Agent: ai-programmer (a8f1cace7f38204cb)
+- Files created: src/ai_dialogue/ (backend.go, ipc.go, config.go, process.go, probe.go, warmup.go, llm_backend.go)
+- Test: tests/integration/ai_dialogue/llm_backend_test.go + stub/main.go — 4/4 PASS, go vet clean, -race clean
+- Bug found & fixed: IPC read loop EOF raced with cmd.Wait — Generate leaked ErrProcessExited instead of ErrModelCrashed
+- Full suite regression: only pre-existing integration/audio failure (missing assets/audio/ fixture, unrelated)
+- Blockers: None
+- Next: /code-review src/ai_dialogue/ then /story-done
+
+## Session Extract — /dev-story 2026-08-11
+- Story: production/epics/tactical-combat-engine/story-001-combat-state-machine-initiative.md — Combat State Machine & Initiative
+- Agent: gameplay-programmer (background, ID: a85d30e37645327ae)
+- Dependencies verified: EF-001 (Complete), STAT-001 (Complete), ENV-001 (Complete), ADR-0009 (Accepted), ADR-0007 (Accepted), ADR-0011 (Accepted)
+- Manifest versions match: story 2026-08-09 = current 2026-08-09
+- TR-IDs registered: TR-combat-006 through TR-combat-009 added to tr-registry.yaml
+- 8 stories written for tactical-combat-engine epic
+- Blockers: None
+- Next: Wait for agent to complete, then /code-review then /story-done
 
 ## Session Extract — /story-done 2026-08-10
 - Verdict: COMPLETE WITH NOTES
@@ -12,20 +269,48 @@
 - Verdict: COMPLETE WITH NOTES
 - Story: production/epics/entity-framework/story-003-spatial-index.md — Spatial Index
 - Tech debt logged: None
-- Next recommended: EF-004 (Write Arbitration) — ready-for-dev, no blockers
+## Session Extract — /story-done 2026-08-10 (#3)
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/entity-framework/story-004-write-arbitration.md — Write Arbitration
+- Tech debt logged: None
+- Next recommended: EF-005 (Serialization) — ready-for-dev, all blockers cleared
 
-<!-- CONSISTENCY-CHECK: 2026-08-09 | GDDs checked: 20 | Conflicts found: 3 (2 known/tracked, 1 registry fixed) | Report: docs/consistency-failures.md -->
+## Session Extract — /story-done 2026-08-10 (#4)
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/entity-framework/story-005-serialization.md — Serialization
+- Tech debt logged: None
+- Next recommended: EF-006 (Performance Validation) — ready-for-dev, all blockers cleared
+
+<!-- QA-PLAN: 2026-08-10 | System: sprint-2 | Plan written: production/qa/qa-plan-sprint-2-2026-08-10.md -->
 <!-- STATUS -->
-Epic: Art Direction
-Feature: Art Bible
-Task: Section 2b (Shape Language) written — Sections 1–10 + 2b complete; engine values pending technical-artist merge
+Epic: Save/Load System
+Feature: Sprint 3 — Must Have stories
+Task: SAVE-001 complete; SAVE-002 next
+Task: QA plan written, ready for implementation
 <!-- /STATUS -->
 
 ## Current Task
 
-- **Task**: Art bible Section 2b (Shape Language) — inserted between Section 2 (Color Palette) and Section 3 (Lighting & Atmosphere), written to file 2026-08-09
-- **File**: design/art/art-bible.md (Sections 1–10 + Section 2b complete; Section 8 engine values pending technical-artist merge)
-- **Status**: COMPLETE — inserted as "2b", no renumbering (34 "Section 3–9" + 138 "N.M" subsection references make a renumber sweep high-risk; user-sanctioned "2b" option chosen). 6 subsections (silhouette-first read, three shape families, environment geometry, hero vs supporting shapes, UI shape grammar, character silhouettes); every subsection anchored to Section 1 + a game pillar; header status line updated
+- **Sprint 2 planned**: Camera System & Infrastructure Remediation (2026-08-11 to 2026-08-17)
+- **Sprint plan**: production/sprints/sprint-2.md
+- **QA plan**: production/qa/qa-plan-sprint-2-2026-08-10.md
+- **Retrospective**: production/retrospectives/retro-sprint-1-2026-08-10.md
+- **Next**: CAM-003 and CAM-004 both unblocked — can run in parallel
+
+## Session Extract — /story-done 2026-08-10 (#7)
+- Verdict: COMPLETE
+- Story: production/epics/camera-system/story-002-zoom-system.md — Zoom System
+- Tech debt logged: None
+- Next recommended: CAM-003 (Follow & Framing) + CAM-004 (Occlusion & Boundaries) — both unblocked
+
+## CAM-003 Implementation — 2026-08-10 (engine-programmer session)
+
+- **Story**: production/epics/camera-system/story-003-follow-framing.md — Follow & Framing
+- **Deliverables written**: src/camera/state.go (base states + overlays, one-deep combat stack, journal close returns to prior base), src/camera/follow.go (PositionSource, party/combat tracking, conversation + combat framing, off-screen marker data contract), src/camera/pan.go (drag pan, edge scroll w/ hysteresis, keyboard pan), src/camera/controller.go (composition root), src/camera/camera.go (added Focus/SetFocus/ViewportSize hooks), tests/integration/camera/follow_framing_test.go (17 tests, AC-1..AC-23 + CR-4)
+- **Coordinator-approved decisions**: controller.go composition root; combat framing 40 u/s (GDD CR-7); party-spread threshold = O×AR
+- **Bugs found & fixed during test pass**: controller.Update passed seconds to cam.Update (zoom API is milliseconds — 300ms transition advanced 0.3ms/frame); pan edge-scroll/keyboard speeds went through world-per-pixel (15/20 u/s became ~0.3 u/s) — added panByWorldDelta; test fixture Y/Z slot swaps in two combat fixtures; test kept-slice used unsorted registration order for the 75% trim expectation
+- **Test results**: all green — tests/integration/camera (17 CAM-003 + 6 CAM-004 untouched), tests/unit/camera (CAM-002 zoom), tests/unit, tests/integration/entity; `go build ./... && go vet ./...` clean in both src and tests modules
+- **Status**: awaiting /story-done review for CAM-003; CAM-004 files untouched (boundary.go, occlusion.go, occlusion_boundaries_test.go)
 
 ## Art Bible Progress
 
@@ -118,3 +403,54 @@ Task: Section 2b (Shape Language) written — Sections 1–10 + 2b complete; eng
 - Section 8 engine values pending technical-artist merge (marked in subsections); resolves with them: art-pipeline decision 2.5D vs 3D (1.3 production note) and 7.3 particle budget validation
 - AD-ART-BIBLE gate sign-off recorded when gate runs (main session)
 - Camera re-review: `/clear` then `/design-review design/gdd/camera-system.md`; then update systems-index.md + review-log
+
+<!-- QA RUN: 2026-08-10 | Sprint: sprint-1 | Verdict: APPROVED WITH CONDITIONS | Report: production/qa/qa-signoff-sprint-1-2026-08-10.md -->
+<!-- QA RUN: 2026-08-11 | Sprint: sprint-2 | Verdict: APPROVED WITH CONDITIONS | Report: production/qa/qa-signoff-sprint-2-2026-08-11.md -->
+
+## Session Extract — /dev-story 2026-08-11
+- Story: production/epics/save-load-system/story-001-save-load-orchestration.md — Save/Load Orchestration
+- Agent: engine-programmer (background, ID: aff76f85157534cd3)
+- Dependencies verified: EF-002 (Complete), EF-005 (Complete), ADR-0002 (Accepted)
+- Manifest versions match: story 2026-08-09 = current 2026-08-09
+- Files to create: src/save/save_manager.go, tests/integration/save-load/save_load_test.go
+- Blockers: None
+- Next: /code-review src/save/ then /story-done production/epics/save-load-system/story-001-save-load-orchestration.md
+
+
+## Session Extract — /story-done 2026-08-11
+- Verdict: COMPLETE
+- Story: production/epics/save-load-system/story-001-save-load-orchestration.md — Save/Load Orchestration
+- Tech debt logged: None
+- Test suite: 28 tests (18 integration + 10 unit), all PASS
+- Code review: APPROVED (re-review after fixes)
+- Next recommended: Check sprint-3 for next ready story
+
+## Session Extract — /dev-story 2026-08-11
+- Story: production/epics/npc-knowledge-graph/story-001-knowledge-domain-fact-model.md — Knowledge Domain & Fact Model
+- Agent: ai-programmer (background, ID: ae8dca2b2cd473bde)
+- Dependencies verified: EF-001 (Complete), EF-002 (Complete), ADR-0005 (Accepted), ADR-0001 (Accepted)
+- Manifest versions match: story 2026-08-09 = current 2026-08-09
+- Files created: src/npc_knowledge_graph/types.go, tests/unit/npc_knowledge_graph/knowledge_graph_test.go
+- Test results: 7/7 PASS, go vet clean
+- Duplicate resolved: removed src/kg/ and tests/unit/kg/ (parallel agent, truncated data model)
+- Blockers: None
+- Next: /code-review src/npc_knowledge_graph/ then /story-done production/epics/npc-knowledge-graph/story-001-knowledge-domain-fact-model.md
+
+## Session Extract — /story-done 2026-08-11
+- Verdict: COMPLETE
+- Story: production/epics/npc-knowledge-graph/story-001-knowledge-domain-fact-model.md — Knowledge Domain & Fact Model
+- Tech debt logged: None
+- Code review: APPROVED WITH SUGGESTIONS (lead-programmer + qa-tester)
+- Test suite: 7 tests, all PASS
+- Next recommended: KG-002 (YAML .kg File Parser) — now unblocked
+
+## Session Extract — /dev-story C&I UI 005 2026-08-11
+- Story: production/epics/character-inventory-ui/story-005-inventory-grid-weight-bar.md — Inventory Grid & Weight Bar
+- Agent: ui-programmer (this session)
+- Files created: src/character_sheet/inventory.go, tests/unit/character_sheet/inventory_test.go
+- Files modified: src/character_sheet/equipment.go (Item += Description/Weight/Value/Quantity + 3 type prefix consts), src/character_sheet/sheet.go (inventory tab wiring: inventory field, showTab/setTabActive/setShown, bindElements, populate, Update, SetReducedMotion, inventoryFuncMap merge), assets/ui/character_sheet.html (tab bar + inv-panel markup + CSS, id on sheet-cols/equip-section)
+- Design decisions: (1) Item component extended with additive fields — required data source for weight bar/detail/stack counts (flagged deviation); (2) AC-10 (95% pulses) vs GDD threshold table (>100% pulses) reconciled via WeightColor (bands per GDD) + WeightPulse (≥90% per AC-10/QA AC-12); (3) dynamic grid cells via document.DuplicateElementToParent from hidden #inv-cell-tpl
+- Test results: 12 new unit tests PASS (AC-10/11/12/14 + thresholds + gold + filter/sort/weight), full suite 53 PASS, go build + go vet clean (src + tests incl. integration vet)
+- Not verified: in-engine rendering (screenshot evidence pending — Kaiju UI risk HIGH: duplicated-cell click binding, Input onchange/onkeyup, overflow:scroll, grid-template-columns)
+- Blockers: None
+- Next: /code-review src/character_sheet/inventory.go then /story-done story-005; note Item component change needs pod serialization sanity check for old saves (ADR-0002)

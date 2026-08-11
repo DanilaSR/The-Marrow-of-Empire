@@ -18,8 +18,8 @@ type Clock interface {
 // RealClock uses the system wall clock. Used in production.
 type RealClock struct{}
 
-func (RealClock) Now() time.Time                     { return time.Now() }
-func (RealClock) Since(t time.Time) time.Duration     { return time.Since(t) }
+func (RealClock) Now() time.Time                  { return time.Now() }
+func (RealClock) Since(t time.Time) time.Duration { return time.Since(t) }
 
 // FakeClock is a manually-advanced clock for deterministic tests.
 // Safe for concurrent use.

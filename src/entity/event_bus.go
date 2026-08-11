@@ -2,6 +2,7 @@ package entity
 
 import (
 	"log/slog"
+	"reflect"
 	"sort"
 )
 
@@ -76,6 +77,15 @@ type EventBus interface {
 	// Emit dispatches an event to all subscribers synchronously, in priority
 	// order, within the same frame.
 	Emit(event Event)
+
+	// Unsubscribe removes a handler previously registered with Subscribe for
+	// the given event type. Handlers are matched by code-pointer identity
+	// (function values are not directly comparable in Go); pass back the
+	// exact handler value from Subscribe. Removing a handler that is not
+	// registered is a no-op. Subscribers that live for the whole process
+	// never need it; systems that tear down must call it so registrations
+	// never outlive their owner.
+	Unsubscribe(eventType EventType, handler EventHandler)
 }
 
 // EventBusImpl is the concrete EventBus. It holds subscriber lists per event
@@ -128,4 +138,31 @@ func (b *EventBusImpl) Emit(event Event) {
 	for _, sub := range b.subscribers[event.Type] {
 		sub.handler(event)
 	}
+}
+
+// Unsubscribe removes the first registration of handler for eventType,
+// matched by code-pointer identity (function values are not directly
+// comparable in Go, so reflection compares the underlying code pointers).
+// Pass back the exact handler value from Subscribe. Removing a handler
+// that was never registered is a no-op. Method values of the same method
+// on different receivers share a code pointer, so when several subscribers
+// use the same method the oldest matching registration is removed — with
+// one subscriber per handler value this is exact.
+func (b *EventBusImpl) Unsubscribe(eventType EventType, handler EventHandler) {
+	list := b.subscribers[eventType]
+	for i, sub := range list {
+		if sameHandler(sub.handler, handler) {
+			b.subscribers[eventType] = append(list[:i], list[i+1:]...)
+			return
+		}
+	}
+}
+
+// sameHandler reports whether two handlers are the same function value by
+// comparing their code pointers via reflection.
+func sameHandler(a, b EventHandler) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return reflect.ValueOf(a).Pointer() == reflect.ValueOf(b).Pointer()
 }

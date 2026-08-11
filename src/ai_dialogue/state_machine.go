@@ -13,7 +13,7 @@ import (
 type ConversationState int
 
 const (
-	StateUnloaded   ConversationState = iota
+	StateUnloaded ConversationState = iota
 	StateLoading
 	StateReady
 	StateGenerating
@@ -48,12 +48,12 @@ const MaxTimeoutsBeforeStable = 3
 //
 // All public methods are safe for concurrent use.
 type StateMachine struct {
-	state     ConversationState
-	backend   LLMBackend
-	npcID     uint64
-	clock     Clock
-	memory    *ConversationMemory
-	fallback  TextFallbackGenerator
+	state    ConversationState
+	backend  LLMBackend
+	npcID    uint64
+	clock    Clock
+	memory   *ConversationMemory
+	fallback TextFallbackGenerator
 
 	timeoutCounter  int
 	sessionTextMode bool

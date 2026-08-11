@@ -5,9 +5,9 @@
 
 ## Engine & Language
 
-- **Engine**: [TO BE CONFIGURED — run /setup-engine]
-- **Language**: [TO BE CONFIGURED]
-- **Rendering**: [TO BE CONFIGURED]
+- **Engine**: Kaiju Engine (custom, Go/Vulkan, nightly 26.07.29.1)
+- **Language**: Go
+- **Rendering**: Vulkan (2D/3D)
 - **Physics**: [TO BE CONFIGURED]
 
 ## Input & Platform
@@ -15,34 +15,35 @@
 <!-- Written by /setup-engine. Read by /ux-design, /ux-review, /test-setup, /team-ui, and /dev-story -->
 <!-- to scope interaction specs, test helpers, and implementation to the correct input methods. -->
 
-- **Target Platforms**: [TO BE CONFIGURED — e.g., PC, Console, Mobile, Web]
-- **Input Methods**: [TO BE CONFIGURED — e.g., Keyboard/Mouse, Gamepad, Touch, Mixed]
-- **Primary Input**: [TO BE CONFIGURED — the dominant input for this game]
-- **Gamepad Support**: [TO BE CONFIGURED — Full / Partial / None]
-- **Touch Support**: [TO BE CONFIGURED — Full / Partial / None]
-- **Platform Notes**: [TO BE CONFIGURED — any platform-specific UX constraints]
+- **Target Platforms**: PC (Steam / Epic)
+- **Input Methods**: Keyboard/Mouse, Gamepad (partial)
+- **Primary Input**: Keyboard/Mouse (isometric CRPG — point-and-click movement, tactical grid selection)
+- **Gamepad Support**: Partial (recommended but not primary)
+- **Touch Support**: None
+- **Platform Notes**: UI must support mouse-driven interaction as primary. Gamepad navigation for menus and combat as secondary.
 
 ## Naming Conventions
 
-- **Classes**: [TO BE CONFIGURED]
-- **Variables**: [TO BE CONFIGURED]
-- **Signals/Events**: [TO BE CONFIGURED]
-- **Files**: [TO BE CONFIGURED]
-- **Scenes/Prefabs**: [TO BE CONFIGURED]
-- **Constants**: [TO BE CONFIGURED]
+- **Packages**: lowercase, single word (e.g., `combat`, `ai`, `dialogue`)
+- **Exported types/functions**: PascalCase (e.g., `PlayerController`, `TakeDamage`)
+- **Unexported types/functions**: camelCase (e.g., `moveSpeed`, `updateState`)
+- **Interfaces**: PascalCase, `-er` suffix for single-method (e.g., `Renderer`, `Saver`)
+- **Files**: snake_case (e.g., `player_controller.go`)
+- **Scenes/Prefabs**: PascalCase matching root entity (e.g., `ForestGrove.scene`)
+- **Constants**: PascalCase (Go convention — no UPPER_SNAKE_CASE)
 
 ## Performance Budgets
 
-- **Target Framerate**: [TO BE CONFIGURED]
-- **Frame Budget**: [TO BE CONFIGURED]
-- **Draw Calls**: [TO BE CONFIGURED]
-- **Memory Ceiling**: [TO BE CONFIGURED]
+- **Target Framerate**: 60 fps
+- **Frame Budget**: 16.6ms
+- **Draw Calls**: [TO BE CONFIGURED — Vulkan-dependent, profile after first region built]
+- **Memory Ceiling**: [TO BE CONFIGURED — must account for 2.7GB LLM model + game memory]
 
 ## Testing
 
-- **Framework**: [TO BE CONFIGURED]
+- **Framework**: Go native `testing` package + `kaijuengine.com` integration test harness
 - **Minimum Coverage**: [TO BE CONFIGURED]
-- **Required Tests**: Balance formulas, gameplay systems, networking (if applicable)
+- **Required Tests**: Combat formulas, AI NPC knowledge graph queries, investigation thread logic, save/load round-trip
 
 ## Forbidden Patterns
 
@@ -65,23 +66,23 @@
 <!-- Read by /code-review, /architecture-decision, /architecture-review, and team skills -->
 <!-- to know which specialist to spawn for engine-specific validation. -->
 
-- **Primary**: [TO BE CONFIGURED — run /setup-engine]
-- **Language/Code Specialist**: [TO BE CONFIGURED]
-- **Shader Specialist**: [TO BE CONFIGURED]
-- **UI Specialist**: [TO BE CONFIGURED]
-- **Additional Specialists**: [TO BE CONFIGURED]
-- **Routing Notes**: [TO BE CONFIGURED]
+- **Primary**: kaijuengine-game-dev (skill-based, covers all engine systems)
+- **Language/Code Specialist**: lead-programmer (Go code review, architecture)
+- **Shader Specialist**: technical-artist (GLSL/Vulkan shaders, materials)
+- **UI Specialist**: ux-designer + kaijuengine-game-dev (HTML/CSS-like UI system)
+- **Additional Specialists**: ai-programmer (NPC LLM integration), gameplay-programmer (combat/exploration systems)
+- **Routing Notes**: No dedicated Kaiju subagent exists. The `kaijuengine-game-dev` skill provides engine guidance. All engine-specific code should invoke this skill. For general Go architecture, invoke `lead-programmer`. For rendering/shaders, invoke `technical-artist`. For Kaiju UI (HTML/CSS-like markup), use `kaijuengine-game-dev` skill + `ux-designer`.
 
 ### File Extension Routing
 
 <!-- Skills use this table to select the right specialist per file type. -->
-<!-- If a row says [TO BE CONFIGURED], fall back to Primary for that file type. -->
 
 | File Extension / Type | Specialist to Spawn |
 |-----------------------|---------------------|
-| Game code (primary language) | [TO BE CONFIGURED] |
-| Shader / material files | [TO BE CONFIGURED] |
-| UI / screen files | [TO BE CONFIGURED] |
-| Scene / prefab / level files | [TO BE CONFIGURED] |
-| Native extension / plugin files | [TO BE CONFIGURED] |
-| General architecture review | Primary |
+| Game code (.go files) | lead-programmer + kaijuengine-game-dev skill |
+| Shader / material files (.glsl, .frag, .vert) | technical-artist |
+| UI / screen files (.html, .css — Kaiju UI markup) | ux-designer + kaijuengine-game-dev skill |
+| Scene / prefab / level files (.scene, .prefab) | kaijuengine-game-dev skill |
+| Entity / component files (.entity, .component) | kaijuengine-game-dev skill |
+| Asset / import config files | kaijuengine-game-dev skill |
+| General architecture review | lead-programmer + kaijuengine-game-dev skill |

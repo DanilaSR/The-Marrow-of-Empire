@@ -146,6 +146,10 @@ func ParseKGFile(path string) (KnowledgeGraph, error) {
 // passes the region's entity store, keeping this function free of engine
 // dependencies. Returns the number of unresolved references. The graph is
 // never modified.
+//
+// This is the load-time variant (Story KG-002). The runtime variant with the
+// same name is a method on KnowledgeGraph — it returns the unresolved IDs
+// themselves instead of reporting through warn.
 func ValidateReferences(graph *KnowledgeGraph, entityExists func(entity.GameEntityID) bool, warn func(format string, args ...any)) int {
 	if graph == nil || entityExists == nil {
 		return 0
@@ -167,6 +171,40 @@ func ValidateReferences(graph *KnowledgeGraph, entityExists func(entity.GameEnti
 					warn("kg: fact %q leads to unknown entity %d", f.FactID, lead.EntityID)
 				}
 			}
+		}
+	}
+	return unresolved
+}
+
+// ValidateReferences reports the entity references in g that do not exist
+// (Story KG-004, AC-1, ADR-0005 validation criteria): every Fact.References
+// entry for which entityExists returns false, each unresolved ID once, in
+// first-occurrence order. entityExists must report whether a GameEntityID
+// exists in the current region; the caller supplies the region's entity store,
+// keeping this method free of engine dependencies.
+//
+// Unlike the package-level load-time ValidateReferences (Story KG-002), this
+// method returns the unresolved IDs themselves — deduplicated, so consumers
+// such as thread overlap filtering see each missing entity once — and does
+// not report through warn. Lead.EntityID validation remains the load-time
+// function's job. Returns nil when no reference is unresolved or when g is
+// nil. The graph is never modified.
+func (g *KnowledgeGraph) ValidateReferences(entityExists func(entity.GameEntityID) bool) []entity.GameEntityID {
+	if g == nil || entityExists == nil {
+		return nil
+	}
+	seen := make(map[entity.GameEntityID]struct{})
+	var unresolved []entity.GameEntityID
+	for _, f := range g.Facts {
+		for _, id := range f.References {
+			if entityExists(id) {
+				continue
+			}
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			unresolved = append(unresolved, id)
 		}
 	}
 	return unresolved

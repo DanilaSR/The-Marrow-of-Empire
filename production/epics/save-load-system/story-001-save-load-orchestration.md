@@ -17,12 +17,12 @@
 
 ## Acceptance Criteria
 
-- [ ] GIVEN 100 entities with components, WHEN Save(slotID) is called, THEN all component stores are collected, encoded via pod, and written to .sav file within 2 seconds
-- [ ] GIVEN a .sav file, WHEN Load(slotID) is called, THEN entities are reconstructed with identical GameEntityIDs, positions, and component values
-- [ ] GIVEN a save from version N, WHEN version N+1 loads it with a registered migration, THEN the migration runs and data loads correctly
-- [ ] GIVEN 20 manual save slots + 1 auto + 1 quicksave, WHEN the player saves, THEN slots are managed without exceeding max
-- [ ] GIVEN F5 during exploration, WHEN quicksave completes, THEN "Game Saved" indicator appears for 1.5 seconds
-- [ ] GIVEN F9 with valid quicksave, WHEN quickload completes, THEN game state matches the quicksave moment
+- [x] GIVEN 100 entities with components, WHEN Save(slotID) is called, THEN all component stores are collected, encoded via pod, and written to .sav file within 2 seconds
+- [x] GIVEN a .sav file, WHEN Load(slotID) is called, THEN entities are reconstructed with identical GameEntityIDs, positions, and component values
+- [x] GIVEN a save from version N, WHEN version N+1 loads it with a registered migration, THEN the migration runs and data loads correctly
+- [x] GIVEN 20 manual save slots + 1 auto + 1 quicksave, WHEN the player saves, THEN slots are managed without exceeding max
+- [x] GIVEN F5 during exploration, WHEN quicksave completes, THEN "Game Saved" indicator appears for 1.5 seconds
+- [x] GIVEN F9 with valid quicksave, WHEN quickload completes, THEN game state matches the quicksave moment
 
 ## Implementation Notes
 

@@ -16,7 +16,7 @@
 //
 // Edge cases from the QA plan: no quicksave exists -> F9 no-op error (no
 // crash); corrupted .sav file -> CRC32 checksum rejection (the .bak restore
-// path is SAVE-002, out of scope); save from a newer version rejected; save
+// path is SAVE-003, out of scope); save from a newer version rejected; save
 // from an older version with no registered migration rejected.
 //
 // The mock KaijuHost and newTestStore helpers are mirrored from
@@ -27,6 +27,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -480,5 +481,309 @@ func TestLoadWithoutRegisteredMigrationRejected(t *testing.T) {
 	_, err := managerB.Load(0)
 	if !errors.Is(err, save.ErrUnsupportedVersion) {
 		t.Fatalf("Load error = %v, want ErrUnsupportedVersion (no migration path)", err)
+	}
+}
+
+// TestZeroComponentEntityRoundTrip covers the QA edge case "entity with zero
+// components": a componentless entity survives a save/load round-trip with its
+// ID and active state intact.
+func TestZeroComponentEntityRoundTrip(t *testing.T) {
+	// Use an explicit shared save dir so two managers see the same file.
+	saveDir := t.TempDir()
+	storeA, _ := newTestStore()
+	mgrA := save.NewSaveManager(storeA, save.Config{SaveDir: saveDir})
+	bareID := createTestEntity(t, storeA, entity.EntityTypeProp, "BareProp", matrix.NewVec3(7, 8, 9))
+	if err := mgrA.Save(0, save.SaveMetadata{CharacterName: "Bare"}); err != nil {
+		t.Fatalf("Save error: %v", err)
+	}
+
+	storeB, _ := newTestStore()
+	mgrB := save.NewSaveManager(storeB, save.Config{SaveDir: saveDir})
+	if _, err := mgrB.Load(0); err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+
+	state, ok := storeB.EntityState(bareID)
+	if !ok || state != entity.EntityStateActive {
+		t.Errorf("zero-component entity %d after load: state=%v ok=%v, want Active", bareID, state, ok)
+	}
+	// The entity has no components — verify QueryEntities returns it.
+	ids := storeB.QueryEntities(entity.Query{})
+	found := false
+	for _, id := range ids {
+		if id == bareID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("zero-component entity %d missing from QueryEntities after load", bareID)
+	}
+}
+
+// TestAllComponentTypesRoundTrip covers the QA edge case "maximum component
+// count": an entity with all 12 attachable component types round-trips
+// correctly.
+func TestAllComponentTypesRoundTrip(t *testing.T) {
+	saveDir := t.TempDir()
+	storeA, _ := newTestStore()
+	mgrA := save.NewSaveManager(storeA, save.Config{SaveDir: saveDir})
+
+	id := createTestEntity(t, storeA, entity.EntityTypeNPC, "Maxed", matrix.NewVec3(1, 2, 3))
+
+	mustSetComponent(t, storeA, id, entity.Health{Current: 80, Max: 100, Temporary: 5})
+	mustSetComponent(t, storeA, id, entity.Stats{Strength: 12, Dexterity: 14, Constitution: 10, Intelligence: 16, Wisdom: 13, Charisma: 8, MaxHealth: 100, ActionPoints: 6, Initiative: 4, Evasion: 12})
+	mustSetComponent(t, storeA, id, entity.Inventory{Items: []entity.GameEntityID{1, 2}, EquipmentSlots: map[string]entity.GameEntityID{"weapon": 1}, Gold: 42})
+	mustSetComponent(t, storeA, id, entity.Knowledge{Domains: []string{"history"}, KnownFacts: []string{"f1", "f2"}, TrustThreshold: 2})
+	mustSetComponent(t, storeA, id, entity.Faction{FactionID: "thornwell", Standing: 50})
+	mustSetComponent(t, storeA, id, entity.Dialogue{Greeting: "Hello", Topics: []string{"war"}, PersonalityProfile: "scholar"})
+	mustSetComponent(t, storeA, id, entity.Combatant{Initiative: 10, ActionPoints: 4, MovementPoints: 6, MovementSpeed: 3.0, Actions: []string{"slash"}, StatusEffects: nil, ReactionAvailable: true})
+	mustSetComponent(t, storeA, id, entity.Interactable{InteractionType: entity.InteractionTalk, PromptText: "Speak", Range: 2.0, IsOnceOnly: false})
+	mustSetComponent(t, storeA, id, entity.Persistent{StateFlags: map[string]entity.StateFlagValue{"world.test": {Kind: entity.StateFlagBool, Bool: true}}, MemoryLog: nil, ModifiedAt: 100.0})
+	mustSetComponent(t, storeA, id, entity.Visual{ModelRef: "npc_01", AnimationState: "idle", Tint: matrix.NewVec3(1, 1, 1), VisibilityFlag: 3, RenderLayer: 1})
+	mustSetComponent(t, storeA, id, entity.Audio{AmbientSound: "wind", FootstepType: "stone", OcclusionFlag: false})
+	mustSetComponent(t, storeA, id, entity.Schedule{Entries: []entity.ScheduleEntry{{StartTime: 480, EndTime: 720, Activity: "working", TargetPosition: matrix.NewVec3(10, 10, 0)}}, CurrentActivity: "working"})
+
+	if err := mgrA.Save(0, save.SaveMetadata{CharacterName: "MaxedOut"}); err != nil {
+		t.Fatalf("Save error: %v", err)
+	}
+
+	storeB, _ := newTestStore()
+	mgrB := save.NewSaveManager(storeB, save.Config{SaveDir: saveDir})
+	if _, err := mgrB.Load(0); err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+
+	// All 12 components must be present after load.
+	if _, ok := entity.GetComponent[entity.Health](storeB, id); !ok {
+		t.Error("Health component missing after load")
+	}
+	if _, ok := entity.GetComponent[entity.Stats](storeB, id); !ok {
+		t.Error("Stats component missing after load")
+	}
+	if _, ok := entity.GetComponent[entity.Inventory](storeB, id); !ok {
+		t.Error("Inventory component missing after load")
+	}
+	if _, ok := entity.GetComponent[entity.Knowledge](storeB, id); !ok {
+		t.Error("Knowledge component missing after load")
+	}
+	if _, ok := entity.GetComponent[entity.Faction](storeB, id); !ok {
+		t.Error("Faction component missing after load")
+	}
+	if _, ok := entity.GetComponent[entity.Dialogue](storeB, id); !ok {
+		t.Error("Dialogue component missing after load")
+	}
+	if _, ok := entity.GetComponent[entity.Combatant](storeB, id); !ok {
+		t.Error("Combatant component missing after load")
+	}
+	if _, ok := entity.GetComponent[entity.Interactable](storeB, id); !ok {
+		t.Error("Interactable component missing after load")
+	}
+	if _, ok := entity.GetComponent[entity.Persistent](storeB, id); !ok {
+		t.Error("Persistent component missing after load")
+	}
+	if _, ok := entity.GetComponent[entity.Visual](storeB, id); !ok {
+		t.Error("Visual component missing after load")
+	}
+	if _, ok := entity.GetComponent[entity.Audio](storeB, id); !ok {
+		t.Error("Audio component missing after load")
+	}
+	if _, ok := entity.GetComponent[entity.Schedule](storeB, id); !ok {
+		t.Error("Schedule component missing after load")
+	}
+}
+
+// TestDeleteSaveRemovesFileAndNoOpOnEmpty verifies DeleteSave removes the .sav
+// file from disk and that deleting an empty slot is a no-op (nil error).
+func TestDeleteSaveRemovesFileAndNoOpOnEmpty(t *testing.T) {
+	manager, store := newTestManager(t)
+	createTestEntity(t, store, entity.EntityTypeNPC, "Target", matrix.NewVec3(1, 2, 3))
+
+	if err := manager.Save(3, save.SaveMetadata{CharacterName: "Delete Me"}); err != nil {
+		t.Fatalf("Save error: %v", err)
+	}
+	slots := manager.ListSaves()
+	if len(slots) != 1 {
+		t.Fatalf("expected 1 save, got %d", len(slots))
+	}
+
+	if err := manager.DeleteSave(3); err != nil {
+		t.Fatalf("DeleteSave error: %v", err)
+	}
+	if _, err := os.Stat(slots[0].FilePath); !os.IsNotExist(err) {
+		t.Errorf("save file still exists after DeleteSave: %v", err)
+	}
+	if len(manager.ListSaves()) != 0 {
+		t.Error("ListSaves not empty after DeleteSave")
+	}
+
+	// Deleting an empty slot is a no-op.
+	if err := manager.DeleteSave(5); err != nil {
+		t.Errorf("DeleteSave on empty slot error: %v, want nil", err)
+	}
+	// Out-of-range slot is still rejected.
+	if err := manager.DeleteSave(-3); !errors.Is(err, save.ErrSlotOutOfRange) {
+		t.Errorf("DeleteSave(-3) error = %v, want ErrSlotOutOfRange", err)
+	}
+}
+
+// TestTruncatedSaveFileRejected verifies that a file shorter than the 16-byte
+// header returns a distinct error (not a panic, not a misleading checksum or
+// version error).
+func TestTruncatedSaveFileRejected(t *testing.T) {
+	saveDir := t.TempDir()
+	store, _ := newTestStore()
+	manager := save.NewSaveManager(store, save.Config{SaveDir: saveDir})
+
+	path := filepath.Join(saveDir, "save_0.sav")
+	if err := os.WriteFile(path, []byte{0x01, 0x00}, 0o644); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	_, err := manager.Load(0)
+	if err == nil {
+		t.Fatal("expected error for truncated file, got nil")
+	}
+	if errors.Is(err, save.ErrChecksumMismatch) {
+		t.Errorf("truncated file returned ErrChecksumMismatch; want a size-related error")
+	}
+	if errors.Is(err, save.ErrUnsupportedVersion) {
+		t.Errorf("truncated file returned ErrUnsupportedVersion; want a size-related error")
+	}
+}
+
+// TestMigrationChainRunsAllSteps verifies that a multi-step migration chain
+// (v1→v2→v3) runs each step exactly once in order.
+func TestMigrationChainRunsAllSteps(t *testing.T) {
+	saveDir := t.TempDir()
+	storeA, _ := newTestStore()
+	mgrA := save.NewSaveManager(storeA, save.Config{SaveDir: saveDir, CurrentVersion: 1})
+	id := createTestEntity(t, storeA, entity.EntityTypeNPC, "ChainTest", matrix.NewVec3(1, 1, 1))
+	mustSetComponent(t, storeA, id, entity.Health{Current: 50, Max: 100})
+	if err := mgrA.Save(0, save.SaveMetadata{CharacterName: "v1 Hero"}); err != nil {
+		t.Fatalf("Save (v1) error: %v", err)
+	}
+
+	storeB, _ := newTestStore()
+	mgrB := save.NewSaveManager(storeB, save.Config{SaveDir: saveDir, CurrentVersion: 3})
+
+	stepOrder := make([]string, 0)
+	mgrB.RegisterMigration(1, 2, func(payload []byte) ([]byte, error) {
+		stepOrder = append(stepOrder, "1->2")
+		return payload, nil
+	})
+	mgrB.RegisterMigration(2, 3, func(payload []byte) ([]byte, error) {
+		stepOrder = append(stepOrder, "2->3")
+		return payload, nil
+	})
+
+	meta, err := mgrB.Load(0)
+	if err != nil {
+		t.Fatalf("Load (v3) error: %v", err)
+	}
+	if meta.Version != 3 {
+		t.Errorf("loaded version = %d, want 3", meta.Version)
+	}
+	if len(stepOrder) != 2 || stepOrder[0] != "1->2" || stepOrder[1] != "2->3" {
+		t.Errorf("migration chain order = %v, want [1->2 2->3]", stepOrder)
+	}
+	hp, ok := entity.GetComponent[entity.Health](storeB, id)
+	if !ok || hp != (entity.Health{Current: 50, Max: 100}) {
+		t.Errorf("entity %d: Health mismatch after chain migration, got %+v ok=%v", id, hp, ok)
+	}
+}
+
+// TestCorruptedOldSaveChecksumPrecedesMigration verifies that a corrupted
+// OLD-version save is rejected by checksum before any migration function
+// touches its payload (ADR-0002).
+func TestCorruptedOldSaveChecksumPrecedesMigration(t *testing.T) {
+	saveDir := t.TempDir()
+	storeA, _ := newTestStore()
+	mgrA := save.NewSaveManager(storeA, save.Config{SaveDir: saveDir, CurrentVersion: 1})
+	createTestEntity(t, storeA, entity.EntityTypeNPC, "OldCorrupt", matrix.NewVec3(1, 1, 1))
+	if err := mgrA.Save(0, save.SaveMetadata{CharacterName: "Old"}); err != nil {
+		t.Fatalf("Save (v1) error: %v", err)
+	}
+
+	// Corrupt the payload of the v1 save.
+	slots := mgrA.ListSaves()
+	data, err := os.ReadFile(slots[0].FilePath)
+	if err != nil {
+		t.Fatalf("ReadFile error: %v", err)
+	}
+	data[20] ^= 0xFF // flip a byte deep in the payload
+	if err := os.WriteFile(slots[0].FilePath, data, 0o644); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	storeB, _ := newTestStore()
+	mgrB := save.NewSaveManager(storeB, save.Config{SaveDir: saveDir, CurrentVersion: 2})
+	migrationRan := false
+	mgrB.RegisterMigration(1, 2, func(payload []byte) ([]byte, error) {
+		migrationRan = true
+		return payload, nil
+	})
+
+	_, err = mgrB.Load(0)
+	if !errors.Is(err, save.ErrChecksumMismatch) {
+		t.Fatalf("Load error = %v, want ErrChecksumMismatch (checksum must precede migration)", err)
+	}
+	if migrationRan {
+		t.Error("migration ran on a corrupted save — checksum check must precede migration")
+	}
+}
+
+// TestListSavesIgnoresForeignFiles verifies that non-.sav files in the save
+// directory are ignored by ListSaves.
+func TestListSavesIgnoresForeignFiles(t *testing.T) {
+	manager, store := newTestManager(t)
+	createTestEntity(t, store, entity.EntityTypeNPC, "Real", matrix.NewVec3(1, 2, 3))
+	if err := manager.Save(0, save.SaveMetadata{CharacterName: "Real Save"}); err != nil {
+		t.Fatalf("Save error: %v", err)
+	}
+
+	// Write foreign files into the save directory.
+	saveDir := manager.ListSaves()[0].FilePath[:len(manager.ListSaves()[0].FilePath)-len("save_0.sav")]
+	foreignFiles := []string{"readme.txt", ".hidden", "save_99.bak", "save_abc.sav", "config.json"}
+	for _, name := range foreignFiles {
+		if err := os.WriteFile(filepath.Join(saveDir, name), []byte("junk"), 0o644); err != nil {
+			t.Fatalf("WriteFile(%s) error: %v", name, err)
+		}
+	}
+
+	slots := manager.ListSaves()
+	if len(slots) != 1 {
+		t.Errorf("ListSaves = %d slots (with foreign files), want exactly 1", len(slots))
+	}
+	if len(slots) > 0 && slots[0].SlotID != 0 {
+		t.Errorf("unexpected slot ID %d in ListSaves, want 0", slots[0].SlotID)
+	}
+}
+
+// TestNoNotificationOnFailedSave verifies that save-completed subscribers are
+// NOT notified when the save fails (e.g. invalid slot).
+func TestNoNotificationOnFailedSave(t *testing.T) {
+	manager, store := newTestManager(t)
+	createTestEntity(t, store, entity.EntityTypeNPC, "Notify", matrix.NewVec3(1, 2, 3))
+
+	var signals []int
+	manager.SubscribeSaveCompleted(func(slotID int, metadata save.SaveMetadata) {
+		signals = append(signals, slotID)
+	})
+
+	// A successful save fires the notification.
+	if err := manager.Save(0, save.SaveMetadata{CharacterName: "Good"}); err != nil {
+		t.Fatalf("Save error: %v", err)
+	}
+	if len(signals) != 1 {
+		t.Fatalf("expected 1 notification after successful save, got %d", len(signals))
+	}
+
+	// A failed save (invalid slot) must NOT fire the notification.
+	if err := manager.Save(-3, save.SaveMetadata{CharacterName: "Bad"}); !errors.Is(err, save.ErrSlotOutOfRange) {
+		t.Fatalf("Save(-3) error = %v, want ErrSlotOutOfRange", err)
+	}
+	if len(signals) != 1 {
+		t.Errorf("notification fired on failed save: got %d signals, want exactly 1", len(signals))
 	}
 }

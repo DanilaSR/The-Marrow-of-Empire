@@ -73,7 +73,8 @@ From ADR-0002: Save file format: [Header 16B] [Metadata] [Entity Table] [Compone
 
 ## Completion Notes
 **Completed**: 2026-08-11
-**Criteria**: 6/6 passing — Save/Load with pod serialization, version migration, slot management (20+1+1), quicksave/quickload, corrupt detection (CRC32)
-**Deviations**: Header uses magic+CRC32 instead of magic-only (story QA edge case requires CRC32); slots 0-19 vs 1-20; QuickLoad returns ErrSaveNotFound (input layer handles as no-op)
-**Test Evidence**: `tests/integration/save-load/save_load_test.go` — 10 test functions, all passing
-**Code Review**: Skipped (Lean mode)
+**Criteria**: 6/6 passing — full-state pod serialization, version migration chain (1→2→3), slot management (20+1+1), quicksave signal + quickload, CRC32 checksum detection, all edge cases covered
+**Deviations**: None — ADR-0002 fully compliant. Platform-standard paths resolved via `platform.go` (Linux: $XDG_DATA_HOME, Windows: %APPDATA%, macOS: ~/Library/Application Support)
+**Test Evidence**: `tests/integration/save-load/save_load_test.go` — 18 tests (up from 10), all PASS (0.03s). Additional: `tests/unit/save/platform_test.go` — 10 tests, all PASS. Story-listed edge cases (zero-component entity, max 12 component types) both covered.
+**Code Review**: ✅ APPROVED — `/code-review` passed 2026-08-11 (re-review after fixes). All 28 tests pass, `go vet` clean, ADR-0002 compliant.
+**Files**: `src/save/save_manager.go`, `src/save/platform.go`, `tests/integration/save-load/save_load_test.go`, `tests/unit/save/platform_test.go`

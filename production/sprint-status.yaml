@@ -9,111 +9,110 @@
 #   done           ↔  Complete
 #   blocked        ↔  Blocked
 
-sprint: 3
-goal: "Establish the Core gameplay foundation: character stats, save/load orchestration, and CI/CD."
+sprint: 4
+goal: "Establish the NPC Knowledge Graph and Living Environment game clock — the Core systems that power AI-driven dialogue and the world's passage of time."
 start: "2026-08-11"
 end: "2026-08-17"
 generated: "2026-08-11"
 updated: "2026-08-11"
 
 stories:
-  - id: "STAT-001"
-    name: "Attribute Model"
-    file: "production/epics/character-stats-progression/story-001-attribute-model.md"
+  - id: "KG-001"
+    name: "Knowledge Domain & Fact Model"
+    file: "production/epics/npc-knowledge-graph/story-001-knowledge-domain-fact-model.md"
     priority: must-have
     status: done
     owner: ""
-    estimate_days: 0.4
-    blocker: "EF-001"
+    estimate_days: 0.8
+    blocker: "EF-001, EF-002"
     completed: "2026-08-11"
 
-  - id: "STAT-002"
-    name: "Derived Stats"
-    file: "production/epics/character-stats-progression/story-002-derived-stats.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.4
-    blocker: "STAT-001"
-    completed: "2026-08-11"
-
-  - id: "STAT-003"
-    name: "XP & Leveling"
-    file: "production/epics/character-stats-progression/story-004-xp-progression.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.4
-    blocker: "STAT-002"
-    completed: "2026-08-11"
-
-  - id: "SAVE-001"
-    name: "Save/Load Orchestration"
-    file: "production/epics/save-load-system/story-001-save-load-orchestration.md"
-    priority: must-have
-    status: review
-    owner: ""
-    estimate_days: 0.6
-    blocker: "EF-002, EF-005"
-    completed: ""
-
-  - id: "SAVE-002"
-    name: "Save File I/O"
-    file: "production/epics/save-load-system/story-002-steam-cloud-paths.md"
+  - id: "KG-002"
+    name: "YAML .kg File Parser"
+    file: "production/epics/npc-knowledge-graph/story-002-yaml-kg-parser.md"
     priority: must-have
     status: ready-for-dev
     owner: ""
-    estimate_days: 0.4
-    blocker: "SAVE-001"
+    estimate_days: 0.8
+    blocker: "KG-001"
     completed: ""
 
-  - id: "CI-001"
-    name: "CI/CD Workflow Setup"
-    file: "production/epics/infrastructure/story-002-ci-workflow.md"
+  - id: "KG-003"
+    name: "Trust Gating & Query Interface"
+    file: "production/epics/npc-knowledge-graph/story-003-trust-gating-queries.md"
     priority: must-have
-    status: in-progress
+    status: ready-for-dev
     owner: ""
-    estimate_days: 0.3
-    blocker: "INFRA-001"
+    estimate_days: 0.8
+    blocker: "KG-001, KG-002"
     completed: ""
 
-  - id: "KG-001"
-    name: "Knowledge Graph Data Model"
-    file: "production/epics/npc-knowledge-graph/story-001-knowledge-domain-fact-model.md"
+  - id: "ENV-001"
+    name: "Game Clock & Light States"
+    file: "production/epics/living-environment/story-001-game-clock-light-states.md"
+    priority: must-have
+    status: ready-for-dev
+    owner: ""
+    estimate_days: 0.8
+    blocker: "EF-001"
+    completed: ""
+
+  - id: "KG-004"
+    name: "Entity References & Knowledge Boundaries"
+    file: "production/epics/npc-knowledge-graph/story-004-entity-references-boundaries.md"
+    priority: should-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: "KG-003"
+    completed: ""
+
+  - id: "KG-005"
+    name: "Knowledge Component Integration"
+    file: "production/epics/npc-knowledge-graph/story-005-knowledge-component-integration.md"
+    priority: should-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.8
+    blocker: "KG-003"
+    completed: ""
+
+  - id: "ENV-002"
+    name: "Wait / Pass-Time Mechanic"
+    file: "production/epics/living-environment/story-002-wait-pass-time.md"
+    priority: should-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.8
+    blocker: "ENV-001"
+    completed: ""
+
+  - id: "SAVE-003"
+    name: "Save File Corruption Recovery"
+    file: "production/epics/save-load-system/story-003-corruption-recovery.md"
     priority: should-have
     status: backlog
     owner: ""
     estimate_days: 0.6
-    blocker: "EF-001, EF-002"
-    completed: ""
-
-  - id: "ENV-001"
-    name: "Game Clock"
-    file: "production/epics/living-environment/story-001-game-clock-light-states.md"
-    priority: should-have
-    status: backlog
-    owner: ""
-    estimate_days: 0.4
-    blocker: "EF-001"
-    completed: ""
-
-  - id: "STAT-004"
-    name: "Equipment Stat Modification"
-    file: "MISSING — no story file exists"
-    priority: should-have
-    status: blocked
-    blocker: "Story file not created — candidate epics: character-stats-progression (story-003-character-creation or story-005-stats-component-integration)"
-    owner: ""
-    estimate_days: 0.3
-    blocker: "STAT-001"
+    blocker: "SAVE-001"
     completed: ""
 
   - id: "ASSET-001"
-    name: "FBX → Kaiju Mesh Import"
+    name: "FBX Import & Normalization"
     file: "production/epics/asset-scene-pipeline/story-001-fbx-import-normalization.md"
     priority: nice-to-have
     status: backlog
     owner: ""
     estimate_days: 0.8
     blocker: ""
+    completed: ""
+
+  - id: "STAT-004"
+    name: "Equipment Stat Modification"
+    file: "MISSING — no story file exists"
+    priority: nice-to-have
+    status: blocked
+    owner: ""
+    estimate_days: 0.3
+    blocker: "Story file not created — candidate epic: character-stats-progression"
     completed: ""

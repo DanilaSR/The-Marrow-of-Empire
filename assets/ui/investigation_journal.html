@@ -1,0 +1,179 @@
+<!--
+  The Marrow of Empire — Investigation Journal (Story 001)
+  Kaiju Engine UI (HTML/CSS-like markup, no JS runtime).
+  Loaded via markup.DocumentFromHTMLAsset; populated from Go by element id.
+
+  Desk register (ADR-0012): full-screen parchment overlay, world dims to 30%.
+  Art bible palette (Section 2.4):
+    Parchment #E3D5B0 | Ink #1C1813 | Panel umber #2E2820 | Soot #141210
+    Oxblood #7A2E28 | Thread red #C4483A | Amber #D9A441
+
+  Story 001 — Shell only: three empty panels, open/close lifecycle.
+  Story 002 populates the sidebar (chain list) and detail (thread view).
+  Story 003 adds the fact log tab and entity quick-ref chips.
+  Story 004 adds contradiction display and revelation prompts.
+  Story 005 adds map centering on thread click.
+
+  Text is ink on parchment only — amber is reserved for status indicators.
+  Amber-on-parchment text is FORBIDDEN (1.5:1 contrast fails WCAG AA).
+-->
+<style>
+  /* ── Root overlay: full-screen dimming + parchment container ── */
+  .invj-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    display: none; /* toggled from Go: flex when open */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(20, 18, 16, 0.70); /* soot dim — world shows at 30% */
+    font-family: "EB Garamond", "Georgia", serif; /* TODO: swap for baked desk serif (Garamond class, OFL) */
+  }
+
+  /* ── Parchment container: the journal "paper" ── */
+  .invj-parchment {
+    display: flex;
+    flex-direction: column;
+    width: 92%;
+    height: 92%;
+    background-color: #E3D5B0; /* parchment */
+    border: 1px solid rgba(28, 24, 19, 0.35);
+    border-radius: 3px 5px 4px 6px;
+    overflow: hidden;
+    /* Paper-slide animation on the overlay container — Go drives offset changes.
+       CSS transition provides a fallback smoothness for property changes. */
+  }
+
+  /* ── Title bar ── */
+  .invj-titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 44px;
+    min-height: 44px;
+    border-bottom: 1px solid rgba(28, 24, 19, 0.20);
+    padding: 0 16px;
+  }
+
+  .invj-title {
+    font-size: 18px;
+    font-weight: normal;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #1C1813; /* ink */
+  }
+
+  .invj-close-btn {
+    position: absolute;
+    right: calc(4% + 12px);
+    top: calc(4% + 10px);
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+    color: #1C1813;
+    cursor: pointer;
+    text-align: center;
+    line-height: 28px;
+    /* Pen-and-ink style: no background, no border, no gradient */
+  }
+
+  /* ── Main content row: sidebar + detail ── */
+  .invj-content {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0; /* allow flex children to shrink */
+  }
+
+  /* ── Sidebar: chain list (left 30%) ── */
+  .invj-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 30%;
+    min-width: 30%;
+    max-width: 30%;
+    border-right: 1px solid rgba(28, 24, 19, 0.20);
+    overflow-y: auto;
+    padding: 12px 10px;
+  }
+
+  /* ── Detail view: threads / facts / entity (center 70%) ── */
+  .invj-detail {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+  }
+
+  /* ── Quick-ref bar: entity chips (bottom) ── */
+  .invj-quickref {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    height: 56px;
+    min-height: 56px;
+    border-top: 1px solid rgba(28, 24, 19, 0.20);
+    padding: 0 16px;
+    background-color: rgba(224, 212, 191, 0.50); /* slightly darker parchment tint */
+    overflow-x: auto;
+    gap: 8px;
+  }
+
+  /* ── Empty-state placeholder text ── */
+  .invj-placeholder {
+    color: rgba(28, 24, 19, 0.45); /* muted ink */
+    font-size: 15px;
+    font-style: italic;
+    text-align: center;
+    margin: auto;
+  }
+
+  /* ── Panel divider (umber, subtle) ── */
+  .invj-divider {
+    width: 100%;
+    height: 1px;
+    background-color: rgba(46, 40, 32, 0.30); /* umber at 30% */
+  }
+
+  /* ── Accessibility: focus ring (oxblood, ≥3:1 on parchment) ── */
+  .invj-overlay *:focus-visible {
+    outline: 2px solid #7A2E28; /* oxblood */
+    outline-offset: 2px;
+  }
+
+  /* ── Accessibility: reduced motion ── */
+  @media (prefers-reduced-motion: reduce) {
+    .invj-overlay {
+      transition: none;
+    }
+  }
+</style>
+
+<div id="invj-overlay" class="invj-overlay">
+  <div class="invj-parchment">
+    <!-- Title bar -->
+    <div class="invj-titlebar">
+      <span class="invj-title">Investigation Journal</span>
+    </div>
+    <div class="invj-close-btn" id="invj-close-btn" tabindex="0" role="button" aria-label="Close journal">✕</div>
+
+    <!-- Main content: sidebar + detail -->
+    <div class="invj-content">
+      <div id="invj-sidebar" class="invj-sidebar" tabindex="0" role="region" aria-label="Investigation chains">
+        <span class="invj-placeholder">No active investigations</span>
+      </div>
+      <div id="invj-detail" class="invj-detail" tabindex="0" role="region" aria-label="Chain detail">
+        <span class="invj-placeholder">Select a chain to view details</span>
+      </div>
+    </div>
+
+    <!-- Entity quick-ref bar -->
+    <div id="invj-quickref" class="invj-quickref" tabindex="0" role="region" aria-label="Recently referenced entities">
+    </div>
+  </div>
+</div>

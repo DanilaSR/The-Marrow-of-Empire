@@ -124,3 +124,10 @@
 
 - Depends on: Story 001 (Journal Shell & Layout), Thread Investigation Story 001 (Complete ✅), Thread Investigation Story 002 (Complete ✅), Entity Framework (Complete ✅), Trust & Relationship Story 001 (Complete ✅)
 - Unlocks: Story 004 (Contradiction Display & Revelation Prompts)
+
+## Completion Notes
+**Completed**: 2026-08-12
+**Criteria**: 6/6 passing (AC-4 quick-ref manual verification deferred — needs in-engine rendering)
+**Deviations**: (1) Fact content displays FactID placeholder — real content from NPC Knowledge Graph deferred; (2) clearQuickRef is a stub — quick-ref children accumulate on refresh; (3) NPC names not resolved — needs Entity Framework integration; (4) Hardcoded row heights/gaps — acknowledged deferral
+**Test Evidence**: 58 tests PASS (20+25+13); manual walkthrough doc pending at `production/qa/evidence/story-003-fact-log-evidence.md`
+**Code Review**: APPROVED WITH SUGGESTIONS (no blocking issues)

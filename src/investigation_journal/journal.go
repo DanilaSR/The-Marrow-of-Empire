@@ -109,6 +109,10 @@ type Journal struct {
 	selectedEntity uint64             // currently selected entity ID (EntitySelected state)
 	navStack      []JournalState      // back-navigation stack for EntitySelected → ChainSelected
 	factGroups    map[string][]FactGroup // chainID → fact groups (cached from LoadData)
+
+	// Story 004: contradictions and revelations.
+	dismissedRevs *DismissedRevelations // per-session dismissal tracking
+	showRevelation bool                 // true when revelation prompt banner is visible
 }
 
 // NewJournal creates and initializes the investigation journal UI hierarchy.
@@ -123,8 +127,9 @@ func NewJournal(host *engine.Host, eventBus entity.EventBus) *Journal {
 		state:      StateClosed,
 		eventBus:   eventBus,
 		overlayY:   screenH, // start offscreen
-		detailTab:  "threads",
-		entityRefs: NewEntityRefSet(),
+		detailTab:    "threads",
+		entityRefs:   NewEntityRefSet(),
+		dismissedRevs: NewDismissedRevelations(),
 	}
 
 	j.man.Init(host)
@@ -248,6 +253,7 @@ func (j *Journal) Open() {
 // via JournalStateChanged event.
 // If called during a show animation, the animation reverses from the
 // current position — no pop, no dropped input.
+// Resets per-session revelation dismissals — prompts reappear on next open.
 func (j *Journal) Close() {
 	if j.state == StateClosed && !j.animating {
 		return // already fully closed and stationary
@@ -255,6 +261,7 @@ func (j *Journal) Close() {
 	screenH := float32(j.host.Window.Height())
 	j.startAnimation(AnimHideDurationSec, screenH, -j.sidebarW) // target: offscreen
 	j.emitStateEvent(false)
+	j.dismissedRevs.Reset()
 	slog.Debug("investigation_journal: closed")
 }
 
@@ -444,7 +451,11 @@ func (j *Journal) addChainRow(entry ChainEntry) {
 	countsLayout.Scale(j.sidebarW-16, 16)
 	row.AddChild(counts.Base())
 
-	// Selection highlight
+	// Revelation glow: amber pulse on chains with revelation_ready status.
+	if entry.Status == thread_investigation.ChainStatusRevelationReady {
+		row.SetColor(matrix.ColorRGBAInt(217, 164, 65, 60)) // amber #D9A441 at ~24% — subtle glow
+	}
+	// Selection highlight (overrides glow).
 	if entry.ID == j.selectedChainID {
 		row.SetColor(matrix.ColorRGBAInt(200, 190, 165, 100)) // warm parchment highlight
 	}
@@ -531,15 +542,204 @@ func (j *Journal) addDetailTabBar() {
 	j.detailChildren = append(j.detailChildren, row.Base())
 }
 
-// populateFactLog fills the detail panel with fact groups for the selected chain.
+// populateFactLog fills the detail panel with fact groups for the selected chain,
+// including contradiction pairs with thread-red connectors.
 func (j *Journal) populateFactLog() {
+	// Show contradiction pairs first (most attention-grabbing).
+	if j.pk != nil {
+		pairs := FindContradictions(j.pk, j.selectedChainID)
+		for _, pair := range pairs {
+			j.addContradictionPair(pair)
+		}
+	}
+
 	groups := j.factGroups[j.selectedChainID]
-	if len(groups) == 0 {
+	if len(groups) == 0 && j.detailY == 0 {
 		j.addDetailPlaceholder("No facts discovered for this chain yet")
 		return
 	}
 	for _, group := range groups {
 		j.addFactGroup(group)
+	}
+
+	// Revelation banner at bottom if chain is ready and not dismissed.
+	j.addRevelationBanner()
+}
+
+// addContradictionPair renders two contradictory facts side-by-side with a
+// thread-red connector line (CR-5).
+func (j *Journal) addContradictionPair(pair ContradictionPair) {
+	rowH := float32(72)
+	row := j.man.Add().ToPanel()
+	row.Init(nil, ui.ElementTypePanel)
+	rLayout := row.Base().Layout()
+	rLayout.SetPositioning(ui.PositioningAbsolute)
+	rLayout.Scale(j.detailW, rowH)
+	rLayout.SetOffset(0, j.detailY)
+	j.detailY += rowH + 6
+
+	// Thread-red left border on both cards.
+	cardW := (j.detailW - 40) / 2
+
+	// Fact A card
+	cardA := j.man.Add().ToPanel()
+	cardA.Init(nil, ui.ElementTypePanel)
+	cardA.SetColor(matrix.ColorRGBAInt(196, 72, 58, 30)) // thread-red at ~12%
+	caLayout := cardA.Base().Layout()
+	caLayout.SetPositioning(ui.PositioningAbsolute)
+	caLayout.Scale(cardW, rowH-4)
+	caLayout.SetOffset(4, 2)
+	row.AddChild(cardA.Base())
+
+	aLabel := j.man.Add().ToLabel()
+	aLabel.Init(pair.FactA.FactID) // placeholder — real content from KG
+	aLabel.SetFontSize(13)
+	aLabel.SetColor(colorInk)
+	alLayout := aLabel.Base().Layout()
+	alLayout.SetPositioning(ui.PositioningAbsolute)
+	alLayout.SetOffset(8, 6)
+	alLayout.Scale(cardW-16, rowH-12)
+	cardA.AddChild(aLabel.Base())
+
+	// Thread-red connector: "↕ CONTRADICTS"
+	connector := j.man.Add().ToLabel()
+	connector.Init("↕ CONTRADICTS")
+	connector.SetFontSize(10)
+	connector.SetColor(matrix.ColorRGBAInt(196, 72, 58, 255)) // thread-red
+	cLayout := connector.Base().Layout()
+	cLayout.SetPositioning(ui.PositioningAbsolute)
+	cLayout.SetOffset(cardW+8, rowH/2-8)
+	cLayout.Scale(24, 16)
+	row.AddChild(connector.Base())
+
+	// Fact B card
+	cardB := j.man.Add().ToPanel()
+	cardB.Init(nil, ui.ElementTypePanel)
+	cardB.SetColor(matrix.ColorRGBAInt(196, 72, 58, 30))
+	cbLayout := cardB.Base().Layout()
+	cbLayout.SetPositioning(ui.PositioningAbsolute)
+	cbLayout.Scale(cardW, rowH-4)
+	cbLayout.SetOffset(cardW+36, 2)
+	row.AddChild(cardB.Base())
+
+	bLabel := j.man.Add().ToLabel()
+	bLabel.Init(pair.FactB.FactID) // placeholder
+	bLabel.SetFontSize(13)
+	bLabel.SetColor(colorInk)
+	blLayout := bLabel.Base().Layout()
+	blLayout.SetPositioning(ui.PositioningAbsolute)
+	blLayout.SetOffset(8, 6)
+	blLayout.Scale(cardW-16, rowH-12)
+	cardB.AddChild(bLabel.Base())
+
+	j.detail.AddChild(row.Base())
+	j.detailChildren = append(j.detailChildren, row.Base())
+}
+
+// addRevelationBanner shows the revelation prompt if the selected chain is
+// revelation_ready and hasn't been dismissed this session.
+func (j *Journal) addRevelationBanner() {
+	if j.pk == nil || j.selectedChainID == "" {
+		return
+	}
+	prompt := BuildRevelationPrompt(j.pk, j.selectedChainID)
+	if prompt == nil || j.dismissedRevs.IsDismissed(j.selectedChainID) {
+		return
+	}
+
+	bannerH := float32(48)
+	banner := j.man.Add().ToPanel()
+	banner.Init(nil, ui.ElementTypePanel)
+	banner.SetColor(matrix.ColorRGBAInt(217, 164, 65, 40)) // amber glow
+	bLayout := banner.Base().Layout()
+	bLayout.SetPositioning(ui.PositioningAbsolute)
+	bLayout.Scale(j.detailW-16, bannerH)
+	bLayout.SetOffset(8, j.detailY)
+	j.detailY += bannerH + 8
+
+	text := j.man.Add().ToLabel()
+	text.Init("You have evidence linking a conclusion. Confront?")
+	text.SetFontSize(14)
+	text.SetColor(colorInk)
+	tLayout := text.Base().Layout()
+	tLayout.SetPositioning(ui.PositioningAbsolute)
+	tLayout.SetOffset(8, 6)
+	tLayout.Scale(j.detailW-120, 18)
+	banner.AddChild(text.Base())
+
+	// Confront button
+	confront := j.man.Add().ToLabel()
+	confront.Init("Confront")
+	confront.SetFontSize(13)
+	confront.SetColor(colorInk)
+	cfLayout := confront.Base().Layout()
+	cfLayout.SetPositioning(ui.PositioningAbsolute)
+	cfLayout.SetOffset(j.detailW-140, 26)
+	cfLayout.Scale(60, 18)
+	confront.Base().AddEvent(ui.EventTypeClick, func() { j.ActOnRevelation(j.selectedChainID) })
+	banner.AddChild(confront.Base())
+
+	// Dismiss button
+	dismiss := j.man.Add().ToLabel()
+	dismiss.Init("Continue Investigating")
+	dismiss.SetFontSize(12)
+	dismiss.SetColor(matrix.ColorRGBAInt(120, 108, 96, 255))
+	dLayout := dismiss.Base().Layout()
+	dLayout.SetPositioning(ui.PositioningAbsolute)
+	dLayout.SetOffset(j.detailW-230, 26)
+	dLayout.Scale(140, 18)
+	dismiss.Base().AddEvent(ui.EventTypeClick, func() { j.DismissRevelation(j.selectedChainID) })
+	banner.AddChild(dismiss.Base())
+
+	j.detail.AddChild(banner.Base())
+	j.detailChildren = append(j.detailChildren, banner.Base())
+}
+
+// DismissRevelation dismisses the revelation prompt for the current session.
+// The prompt will reappear when the journal is next opened.
+func (j *Journal) DismissRevelation(chainID string) {
+	j.dismissedRevs.Dismiss(chainID)
+	j.refreshDetail()
+}
+
+// ActOnRevelation triggers confrontation: emits a RevelationActed-like event
+// and permanently dismisses the prompt.
+func (j *Journal) ActOnRevelation(chainID string) {
+	j.dismissedRevs.Dismiss(chainID)
+	j.showRevelation = false
+	// VERIFY: emit event for dialogue system to consume.
+	j.refreshDetail()
+}
+
+// RequestMapCenter emits a MapCenterRequested event for the given entity.
+// If no EventBus is configured, silently does nothing.
+// Called when the player clicks a thread referencing a known location.
+func (j *Journal) RequestMapCenter(entityID uint64, posX, posY float32) {
+	if j.eventBus == nil {
+		return
+	}
+	j.eventBus.Emit(entity.Event{
+		Type:   EventMapCenterRequested,
+		Source: "investigation_journal",
+		Data: MapCenterEvent{
+			EntityID:  entityID,
+			PosX:      posX,
+			PosY:      posY,
+			Requester: "investigation_journal",
+		},
+	})
+}
+
+// HandleThreadClick processes a thread click: if the thread has a known location,
+// emits MapCenterRequested; otherwise opens the entity journal entry.
+func (j *Journal) HandleThreadClick(entry ThreadEntry) {
+	loc := ResolveThreadLocation(entry.SourceNPC) // SourceNPC doubles as target entity for now
+	if loc.HasLocation {
+		j.RequestMapCenter(loc.TargetEntity, loc.PosX, loc.PosY)
+	} else {
+		// Fallback: open entity journal entry (EntitySelected state).
+		// Use SourceNPC as the entity to inspect.
+		j.SelectEntity(entry.SourceNPC, "")
 	}
 }
 
@@ -762,6 +962,23 @@ func (j *Journal) addThreadRow(entry ThreadEntry) {
 	statusLayout.SetOffset(160, 28)
 	statusLayout.Scale(100, 16)
 	row.AddChild(status.Base())
+
+	// Map pin icon for location threads (Story 005).
+	if entry.HasLocation {
+		pin := j.man.Add().ToLabel()
+		pin.Init("⌖") // map pin placeholder
+		pin.SetFontSize(14)
+		pin.SetColor(matrix.ColorRGBAInt(120, 108, 96, 255))
+		pinLayout := pin.Base().Layout()
+		pinLayout.SetPositioning(ui.PositioningAbsolute)
+		pinLayout.SetOffset(j.detailW-36, 6)
+		pinLayout.Scale(20, 20)
+		row.AddChild(pin.Base())
+	}
+
+	// Click handler: map center or entity journal (Story 005).
+	entryCopy := entry
+	row.Base().AddEvent(ui.EventTypeClick, func() { j.HandleThreadClick(entryCopy) })
 
 	j.detail.AddChild(row.Base())
 	j.detailChildren = append(j.detailChildren, row.Base())

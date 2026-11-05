@@ -1,6 +1,7 @@
 package aidialogue
 
 import (
+	"slices"
 	"strings"
 )
 
@@ -53,22 +54,15 @@ func (m *ConversationMemory) RecordExchange(question, response string) {
 
 // RecordDisclosed adds a fact ID to the disclosed set. Duplicates are ignored.
 func (m *ConversationMemory) RecordDisclosed(factID string) {
-	for _, id := range m.DisclosedFacts {
-		if id == factID {
-			return
-		}
+	if slices.Contains(m.DisclosedFacts, factID) {
+		return
 	}
 	m.DisclosedFacts = append(m.DisclosedFacts, factID)
 }
 
 // HasDisclosed reports whether a fact ID has already been disclosed.
 func (m *ConversationMemory) HasDisclosed(factID string) bool {
-	for _, id := range m.DisclosedFacts {
-		if id == factID {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(m.DisclosedFacts, factID)
 }
 
 // SummaryForPrompt returns the rolling summary formatted for inclusion in

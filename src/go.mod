@@ -8,6 +8,7 @@ require gopkg.in/yaml.v3 v3.0.1
 
 require (
 	github.com/KaijuEngine/uuid v1.0.0 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/tdewolff/parse/v2 v2.8.1 // indirect
 	golang.design/x/clipboard v0.7.1 // indirect
 	golang.org/x/exp/shiny v0.0.0-20250819193227-8b4c13bb791b // indirect

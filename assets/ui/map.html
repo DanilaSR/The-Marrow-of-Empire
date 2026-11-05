@@ -1,0 +1,620 @@
+<!--
+  The Marrow of Empire — Map UI (Story 001: Local Map Display &
+  Navigation; Story 002: Map Markers & Pins; Story 003: World Map &
+  Region Travel). Kaiju Engine UI (HTML/CSS-like markup, no JS runtime).
+  Loaded via markup.DocumentFromHTMLAsset. Visibility, the paper-slide
+  motion, the world dim, the region surface position, the linework
+  segments, the player indicator, and the label font sizes are all driven
+  from Go (src/ui/map) — the Kaiju CSS engine has no transitions, so the
+  map's Go driver animates translateY/opacity and repositions the surface
+  and linework per frame.
+
+  The document hosts two independent full-screen overlays: the local map
+  (map-root, Stories 001-002) and the world map (world-root, Story 003).
+  Each controller binds only its own root; the world map is opened from
+  the local map's "World" tab (hit-tested Go-side) or standalone.
+
+  Register: Desk (ADR-0012) — full-screen parchment overlay, world dims to
+  30% (soot dim layer, opacity driven Go-side), paper-slide motion: enter
+  250ms ease-out, exit 200ms; no bounce, scale, spin, or flip (TR-ui-004).
+  The desk never trembles: this UI renders on the UI orthographic camera,
+  immune to world camera shake (TR-ui-004, AC-6).
+
+  Art bible palette (Section 2.4 / 6.6):
+    Panel umber #2E2820 | Soot #141210 | Ink #1C1813 | Parchment #E3D5B0
+    Amber #D4A040 / #D9A441 | Oxblood #7A2E28
+
+  Ink-on-parchment rule: linework and ALL text use the dark ink palette.
+  Amber is accent/fill only and never appears on parchment (1.5:1 contrast
+  fails WCAG AA — control manifest Presentation layer).
+
+  TODO(font): font-family is the engine default grotesque sans
+  (OpenSans-Regular, OFL). Swap for the desk serif (Garamond class) when
+  technical-artist ships the font binaries (TR-ui-005, ADR-0012
+  Typography).
+  TODO(localization): the hint label texts ("Drag to pan…", "No regions
+  discovered", "Zoom to map", "Factions:", "Locations discovered:",
+  "Active threads:") are placeholders pending the localization system
+  (ui-code rules).
+-->
+<style>
+  /* Root: full-screen desk overlay, parked off-screen and hidden until the
+     map opens. translateY is driven Go-side: positive = up in Kaiju's
+     layout, so the map rests below the screen edge (negative translateY)
+     and slides up into view (enter 250ms ease-out, exit 200ms). */
+  .map-root {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    display: none; /* shown Go-side when the map opens */
+    z-index: 100;
+  }
+
+  /* World dim: full-screen soot layer behind the parchment. The world
+     shows at 30% brightness once the map settles (ADR-0012 desk register);
+     opacity is driven Go-side in step with the paper slide (0 -> 0.70). */
+  .map-dim {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #141210; /* soot */
+    opacity: 0; /* dim opacity, driven Go-side */
+  }
+
+  /* The parchment sheet: full-screen desk register surface. */
+  .map-paper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #E3D5B0; /* parchment */
+    border: 2px solid rgba(28, 24, 19, 0.45); /* faint ink frame */
+  }
+
+  /* Region surface: the pan/scroll viewport content. Its size is set
+     Go-side from the region's pixel extent (region meters x map scale);
+     left/top is the viewport offset, driven Go-side while panning. */
+  .map-surface {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  /* Ink-on-parchment linework (AC-3): line segments are thin panels cloned
+     Go-side from the hidden template. Each segment's left/top/width/height
+     and rotate are set inline; the class picks the ink weight. Dark ink
+     palette only — no amber on parchment. */
+  .line-segment {
+    position: absolute;
+    background-color: #1C1813; /* ink */
+  }
+
+  .line-boundary {
+    background-color: #1C1813; /* ink — region boundaries, 3px */
+  }
+
+  .line-path {
+    background-color: rgba(28, 24, 19, 0.60); /* fainter ink — paths */
+  }
+
+  .line-structure {
+    background-color: #1C1813; /* ink — structures, 2px */
+  }
+
+  /* Hidden template: cloned once per line segment at SetRegion. */
+  .line-template {
+    display: none;
+  }
+
+  /* Markers (Story 002) — the marker layer sits on the surface above the
+     linework. Every marker is an absolutely positioned element cloned
+     Go-side from its hidden template and centered on its world position
+     (left/top set inline). Sizes here mirror the Go constants in
+     render.go (markerIconBox, threadDotSize, threadStarSize, starArm*);
+     the comments note the pairings. */
+  .marker {
+    position: absolute;
+  }
+
+  /* Pin markers (NPCs AC-1, discovered locations AC-4): 10px icon box
+     holding a 6px ink diamond and a 12px desk-serif label to the right.
+     Labels are dark ink — amber is accent/fill only and never used for
+     marker text (1.5:1 contrast fails WCAG AA, control manifest). */
+  .marker-npc,
+  .marker-location {
+    width: 10px; /* markerIconBox */
+    height: 10px;
+  }
+
+  .marker-npc-pin,
+  .marker-location-pin {
+    position: absolute;
+    left: 2px; /* (10 - 6) / 2 — centered in the icon box */
+    top: 2px;
+    width: 6px;
+    height: 6px;
+    background-color: #1C1813; /* ink */
+    rotate: 45deg; /* square -> diamond pin */
+  }
+
+  .marker-label {
+    position: absolute;
+    left: 12px; /* icon box (10px) + 2px gap */
+    top: -1px; /* centers 12px text on the 10px box */
+    font-size: 12px; /* fixed — always at the AC-7 effective minimum */
+    color: #1C1813; /* ink — never amber on parchment */
+    font-family: "OpenSans-Regular"; /* TODO(font): desk serif */
+  }
+
+  /* Thread markers: amber accent fills only (never text). The dot and the
+     star are shape-distinct — circle vs five spokes — so the priority
+     signal survives colorblind modes (control manifest: never encode
+     game-critical information by hue alone). */
+  .marker-thread-dot {
+    width: 8px; /* threadDotSize */
+    height: 8px;
+    border-radius: 4px; /* threadDotSize / 2 — 8px circle */
+    background-color: #D4A040; /* amber */
+  }
+
+  .marker-thread-star {
+    width: 12px; /* threadStarSize */
+    height: 12px;
+  }
+
+  .marker-star-arm {
+    position: absolute;
+    width: 2px; /* starArmThickness */
+    height: 6px; /* starArmLength */
+    background-color: #D4A040; /* amber */
+    /* left/top/rotate are set Go-side per arm (StarArms geometry). */
+  }
+
+  /* Ink X over cleared locations (AC-5): two 14x2px ink arms crossing at
+     the pin's center, hidden until the marker is built with Cleared=true
+     (Go-side display: block on both arms). */
+  .marker-x-arm {
+    position: absolute;
+    left: -2px; /* (10 - 14) / 2 — centered on the icon box */
+    top: 4px; /* (10 - 2) / 2 */
+    width: 14px;
+    height: 2px;
+    background-color: #1C1813; /* ink */
+    display: none; /* shown Go-side for cleared locations */
+  }
+
+  .marker-x-arm-a {
+    rotate: 45deg;
+  }
+
+  .marker-x-arm-b {
+    rotate: -45deg;
+  }
+
+  /* Hidden clone sources: duplicated once per marker at refresh
+     (rebuildMarkers). Ids and inline styles are set Go-side. */
+  .marker-template {
+    display: none;
+  }
+
+  /* Player indicator (AC-4): ink dot with a facing nib. The container is
+     positioned Go-side at the player's surface coordinates; the nib is an
+     ink sliver offset from the dot center along the facing direction
+     (FacingNibOffset) — unambiguous without rotation. */
+  .map-player {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+  }
+
+  .map-player-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #1C1813; /* ink */
+    border: 1px solid rgba(227, 213, 176, 0.90); /* parchment halo ring */
+    border-radius: 4px; /* 8px circle */
+  }
+
+  .map-player-nib {
+    position: absolute;
+    width: 3px;
+    height: 12px;
+    background-color: #1C1813; /* ink */
+  }
+
+  /* Region name: desk serif title on the parchment, ink. font-size is
+     scaled Go-side (height-based scaling, AC-7). */
+  .map-region-name {
+    position: absolute;
+    top: 16px;
+    left: 20px;
+    font-size: 16px; /* body size at reference height, scaled Go-side */
+    color: #1C1813; /* ink — never amber on parchment */
+    font-family: "OpenSans-Regular"; /* TODO(font): desk serif */
+  }
+
+  /* Bottom hint: pan/close instructions in small ink text. */
+  .map-hint {
+    position: absolute;
+    bottom: 12px;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .map-hint-label {
+    font-size: 12px; /* scaled Go-side; never below 12px effective (AC-7) */
+    color: rgba(28, 24, 19, 0.80); /* ink */
+    font-family: "OpenSans-Regular"; /* TODO(font): desk serif */
+  }
+
+  /* World button (Story 003 navigation): the local map's zoom-out tab in
+     the top-right corner. Position (right/top) is driven Go-side from the
+     same constants as the hit-test (render.go worldButton*); clicks are
+     hit-tested Go-side (mouse polling) and routed through
+     LocalMap.SetWorldRequestHandler. Pen-and-ink: faint ink frame, ink
+     text. */
+  .map-world-button {
+    position: absolute;
+    width: 72px; /* worldButtonWidth */
+    height: 28px; /* worldButtonHeight */
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(28, 24, 19, 0.50); /* faint ink frame */
+  }
+
+  .map-world-button-label {
+    font-size: 16px; /* body size, scaled Go-side (AC-7) */
+    color: #1C1813; /* ink — never amber on parchment */
+    font-family: "OpenSans-Regular"; /* TODO(font): desk serif */
+  }
+
+  /* =====================================================================
+     World map overlay (Story 003) — a separate full-screen root, parked
+     off-screen and hidden until the world map opens. Same desk-register
+     conventions as the local map: soot dim, parchment, Go-driven slide.
+     ===================================================================== */
+
+  .world-root {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    display: none; /* shown Go-side when the world map opens */
+    z-index: 110; /* above the local map's root (100) */
+  }
+
+  .world-dim {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #141210; /* soot */
+    opacity: 0; /* dim opacity, driven Go-side */
+  }
+
+  .world-paper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #E3D5B0; /* parchment */
+    border: 2px solid rgba(28, 24, 19, 0.45); /* faint ink frame */
+  }
+
+  /* World canvas: the pan/scroll viewport content. Size and left/top
+     (viewport offset) are driven Go-side. */
+  .world-surface {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  .world-regions,
+  .world-routes {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  /* Region groups: one cloned container per discovered region, sized and
+     positioned Go-side; children (wash, linework, X, label) are
+     absolutely positioned within it. */
+  .world-region {
+    position: absolute;
+  }
+
+  /* Interior ink wash (AC-2) and faction territory wash (AC-4): panels
+     filling the region bounds. Wash colors are set inline Go-side; the
+     faction wash settles at 10-15% opacity (FactionWashOpacity). */
+  .world-wash,
+  .world-faction-wash {
+    position: absolute;
+  }
+
+  /* Ink X over Cleared regions (AC-2): two crossing arms centered on the
+     region bounds center. The container parks at the center (Go-side);
+     the arm centers land on the container origin, so the Go-side
+     positioning offsets by half the arm box (world_map.go cloneX). */
+  .world-x {
+    position: absolute;
+    width: 0;
+    height: 0;
+  }
+
+  .world-x-arm {
+    position: absolute;
+    left: -1px; /* (14 - 2) / 2 — arm center (left+7, top+1) = (6, 6) */
+    top: 5px;
+    width: 14px;
+    height: 2px;
+    background-color: #1C1813; /* ink */
+    display: none; /* shown Go-side */
+  }
+
+  .world-x-arm-a {
+    rotate: 45deg;
+  }
+
+  .world-x-arm-b {
+    rotate: -45deg;
+  }
+
+  /* Region name label (AC-1): ink text anchored near the bounds center.
+     left/top are set Go-side; the inner label uses the marker label
+     styling. */
+  .world-region-label {
+    position: absolute;
+  }
+
+  /* Empty-parchment hint (AC-1 edge): shown Go-side when no regions are
+     discovered. */
+  .world-hint {
+    position: absolute;
+    top: 40%;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .world-hint-label {
+    font-size: 12px; /* scaled Go-side; never below 12px effective (AC-7) */
+    color: rgba(28, 24, 19, 0.80); /* ink */
+    font-family: "OpenSans-Regular"; /* TODO(font): desk serif */
+    display: none; /* shown Go-side when the world map is empty */
+  }
+
+  /* Region detail panel (AC-5): a parchment sheet paper-sliding in from
+     the right edge (translateX driven Go-side). 240px wide with 20px
+     margins — fits the 1280x720 minimum resolution without clipping. */
+  .world-detail-panel {
+    position: absolute;
+    right: 20px; /* detailPanelMargin */
+    top: 20px;
+    bottom: 20px;
+    width: 240px; /* DetailPanelWidth */
+    background-color: #E3D5B0; /* parchment */
+    border: 2px solid rgba(28, 24, 19, 0.45); /* faint ink frame */
+    display: none; /* shown Go-side when a region is selected */
+  }
+
+  .world-detail-name {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    font-size: 16px; /* body size, scaled Go-side (AC-7) */
+    color: #1C1813; /* ink */
+    font-family: "OpenSans-Regular"; /* TODO(font): desk serif */
+  }
+
+  /* State shape (AC-5): a solid ink dot for Visited, a faded dot with
+     cloned ink X arms for Cleared, a dashed ring for Unexplored — the
+     shape distinguishes the state, never text or hue alone. The classes
+     match RegionStateInk ("solid"/"faint"/"dashed"); the X arms are
+     cloned Go-side into the icon. */
+  .world-state-icon {
+    position: absolute;
+    top: 40px;
+    left: 12px;
+    width: 12px;
+    height: 12px;
+  }
+
+  .world-state-solid {
+    background-color: #1C1813; /* ink dot — Visited */
+    border-radius: 6px;
+  }
+
+  .world-state-faint {
+    background-color: rgba(28, 24, 19, 0.45); /* faded dot — Cleared */
+    border-radius: 6px;
+  }
+
+  .world-state-dashed {
+    border: 2px dashed #1C1813; /* dashed ring — Unexplored */
+    border-radius: 6px;
+  }
+
+  .world-detail-state {
+    position: absolute;
+    top: 39px; /* centers 12px text on the 12px icon */
+    left: 30px;
+    font-size: 12px; /* scaled Go-side; never below 12px effective */
+    color: #1C1813; /* ink */
+    font-family: "OpenSans-Regular"; /* TODO(font): desk serif */
+  }
+
+  .world-detail-factions,
+  .world-detail-locations,
+  .world-detail-threads {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    font-size: 12px; /* scaled Go-side; never below 12px effective */
+    color: #1C1813; /* ink */
+    font-family: "OpenSans-Regular"; /* TODO(font): desk serif */
+  }
+
+  .world-detail-factions {
+    top: 66px;
+  }
+
+  .world-detail-locations {
+    top: 90px;
+  }
+
+  .world-detail-threads {
+    top: 114px;
+  }
+
+  /* "Zoom to map" tab (Story 003 navigation): closes the world map back
+     to the selected region's local map. Hit rect mirrored Go-side
+     (world_map.go zoomButtonHeight/inZoomButton). */
+  .world-detail-zoom {
+    position: absolute;
+    bottom: 10px;
+    left: 12px;
+    right: 12px;
+    height: 24px; /* zoomButtonHeight */
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(28, 24, 19, 0.50); /* faint ink frame */
+    font-size: 12px; /* scaled Go-side; never below 12px effective */
+    color: #1C1813; /* ink */
+    font-family: "OpenSans-Regular"; /* TODO(font): desk serif */
+  }
+
+  /* Hidden clone sources: duplicated Go-side at rebuild (regions, washes,
+     line segments, X arms, labels). Ids and inline styles are set
+     Go-side. */
+  .world-template {
+    display: none;
+  }
+</style>
+
+<Panel id="map-root" class="map-root">
+  <!-- World dim layer: soot at Go-driven opacity (world -> 30%, AC-1). -->
+  <Panel id="map-dim" class="map-dim"></Panel>
+
+  <!-- Parchment sheet with the region surface inside. -->
+  <Panel id="map-paper" class="map-paper">
+    <Panel id="map-surface" class="map-surface">
+      <!-- Linework clone template: duplicated once per region segment at
+           SetRegion. Ids and inline styles are set Go-side. -->
+      <Panel id="line-template" class="line-segment line-template"></Panel>
+
+      <!-- Marker clone templates (Story 002): duplicated once per marker
+           in rebuildMarkers. The label placeholders ("???"/"…") are
+           overwritten Go-side at clone time — they exist so the cloned
+           labels have a text node to bind to. -->
+      <Panel id="npc-marker-template" class="marker marker-npc marker-template">
+        <Panel class="marker-npc-pin"></Panel>
+        <Label class="marker-label">???</Label>
+      </Panel>
+
+      <Panel id="thread-dot-template" class="marker marker-thread-dot marker-template"></Panel>
+
+      <Panel id="thread-star-template" class="marker marker-thread-star marker-template">
+        <Panel class="marker-star-arm"></Panel>
+        <Panel class="marker-star-arm"></Panel>
+        <Panel class="marker-star-arm"></Panel>
+        <Panel class="marker-star-arm"></Panel>
+        <Panel class="marker-star-arm"></Panel>
+      </Panel>
+
+      <Panel id="location-marker-template" class="marker marker-location marker-template">
+        <Panel class="marker-location-pin"></Panel>
+        <Panel class="marker-x-arm marker-x-arm-a"></Panel>
+        <Panel class="marker-x-arm marker-x-arm-b"></Panel>
+        <Label class="marker-label">…</Label>
+      </Panel>
+
+      <!-- Player indicator: dot + facing nib, positioned Go-side. -->
+      <Panel id="map-player" class="map-player">
+        <Panel id="map-player-dot" class="map-player-dot"></Panel>
+        <Panel id="map-player-nib" class="map-player-nib"></Panel>
+      </Panel>
+    </Panel>
+
+    <!-- Fixed parchment furniture: region name (top-left), hint (bottom),
+         world button (top-right, Story 003 navigation). -->
+    <Label id="map-region-name" class="map-region-name"></Label>
+    <Panel id="map-hint" class="map-hint">
+      <Label id="map-hint-label" class="map-hint-label">Drag to pan - M / Esc to close</Label>
+    </Panel>
+    <Panel id="map-world-button" class="map-world-button">
+      <Label class="map-world-button-label">World</Label>
+    </Panel>
+  </Panel>
+</Panel>
+
+<!-- World map overlay (Story 003): a separate full-screen root above the
+     local map (z-index 110). All visibility, slide, dim, canvas position,
+     region/route/faction geometry, and the detail panel slide are driven
+     from Go (world_map.go). -->
+<Panel id="world-root" class="world-root">
+  <Panel id="world-dim" class="world-dim"></Panel>
+
+  <Panel id="world-paper" class="world-paper">
+    <Panel id="world-surface" class="world-surface">
+      <!-- Region group and route dot containers (children cloned Go-side). -->
+      <Panel id="world-regions" class="world-regions"></Panel>
+      <Panel id="world-routes" class="world-routes"></Panel>
+
+      <!-- Clone templates (hidden): duplicated once per region/element at
+           rebuild. Ids, classes, and inline styles are set Go-side. -->
+      <Panel id="world-region-template" class="world-region world-template"></Panel>
+      <Panel id="world-wash-template" class="world-wash world-template"></Panel>
+      <Panel id="world-boundary-template" class="line-segment world-template"></Panel>
+      <Panel id="world-hatch-template" class="line-segment world-template"></Panel>
+      <Panel id="world-x-template" class="world-x world-template">
+        <Panel class="world-x-arm world-x-arm-a"></Panel>
+        <Panel class="world-x-arm world-x-arm-b"></Panel>
+      </Panel>
+      <Panel id="world-region-label-template" class="world-region-label world-template">
+        <Label class="marker-label">…</Label>
+      </Panel>
+    </Panel>
+
+    <!-- Empty-parchment hint (AC-1 edge): shown Go-side when no regions
+         are discovered. -->
+    <Panel id="world-hint" class="world-hint">
+      <Label id="world-hint-label" class="world-hint-label">No regions discovered</Label>
+    </Panel>
+
+    <!-- Region detail panel (AC-5): paper-slides in from the right edge.
+         Content rows are written Go-side on selection. -->
+    <Panel id="world-detail-panel" class="world-detail-panel">
+      <Label id="world-detail-name" class="world-detail-name"></Label>
+      <Panel id="world-detail-state-icon" class="world-state-icon"></Panel>
+      <Label id="world-detail-state" class="world-detail-state"></Label>
+      <Label id="world-detail-factions" class="world-detail-factions"></Label>
+      <Label id="world-detail-locations" class="world-detail-locations"></Label>
+      <Label id="world-detail-threads" class="world-detail-threads"></Label>
+      <Label id="world-detail-zoom" class="world-detail-zoom">Zoom to map</Label>
+    </Panel>
+  </Panel>
+</Panel>

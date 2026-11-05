@@ -24,8 +24,8 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 1
-last_updated: "2026-08-09"
+version: 4
+last_updated: "2026-08-12"
 
 requirements:
   # ─── Entity Framework ───
@@ -578,28 +578,1379 @@ requirements:
     adr: ADR-0012
     added: 2026-08-09
 
-# --- EXAMPLE ENTRIES (remove when first real entries are added) ---
-#
-# - id: TR-combat-001
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Player takes damage from enemies based on attack power minus defence"
-#   created: 2026-03-10
-#   revised: ""
-#   status: active
-#
-# - id: TR-combat-002
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Combo window timing is 0.4 seconds between hits"
-#   created: 2026-03-10
-#   revised: "2026-04-01"
-#   status: active
-#
-# - id: TR-combat-003
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Old damage formula using raw stats"
-#   created: 2026-03-10
-#   revised: ""
-#   status: superseded-by: TR-combat-001
+  # ─── Entity Framework (2026-08-12 additions) ───
+  - id: TR-ef-007
+    status: active
+    source: design/gdd/entity-framework.md
+    requirement: "Spatial query API: RangeQuery(dst, pos, radius, filter) with caller-provided scratch buffer, LiveOnly filter flag, destroyed IDs return zero value"
+    domain: Core
+    adr: ADR-0001
+    added: 2026-08-12
+  - id: TR-ef-008
+    status: active
+    source: design/gdd/entity-framework.md
+    requirement: "Component catalog: 15 typed components with field schemas, StatusEffect element schema, InteractionType enum (9 values), namespaced Persistent state_flags"
+    domain: Core
+    adr: ADR-0001
+    added: 2026-08-12
+  - id: TR-ef-009
+    status: active
+    source: design/gdd/entity-framework.md
+    requirement: "Suspension model: reduced tick rate (default 1000ms), guards (combat/dialogue/quest-relevant/player), hysteresis margin 10%, quest-relevant destruction logs world-state event"
+    domain: Core
+    adr: ADR-0001
+    added: 2026-08-12
+  - id: TR-ef-010
+    status: active
+    source: design/gdd/entity-framework.md
+    requirement: "Event catalog: 7 events, lifecycle events never dropped, component_changed batched per (entity, component) per frame, re-entrancy guard, 500-events/frame diagnostic cap"
+    domain: Core
+    adr: ADR-0001, ADR-0011
+    added: 2026-08-12
+  - id: TR-ef-011
+    status: active
+    source: design/gdd/entity-framework.md
+    requirement: "Field write-ownership: declared owner per component field, write table includes namespaced Persistent flags and composite fields (Visual.tint/animation/visibility), priority resolution for undeclared conflicts"
+    domain: Core
+    adr: ADR-0001
+    added: 2026-08-12
+  - id: TR-ef-012
+    status: active
+    source: design/gdd/entity-framework.md
+    requirement: "Concurrency: all component writes on main thread, systems sequential per frame, NPC LLM inference on separate goroutine marshals results via thread-safe queue"
+    domain: Core
+    adr: ADR-0001, ADR-0008
+    added: 2026-08-12
+  - id: TR-ef-013
+    status: active
+    source: design/gdd/entity-framework.md
+    requirement: "Serialization budget: full save 2500 entities ≤100ms p95, deserialize ≤200ms p95, float32 round-trip tolerance 1e-5, pod:- transient-field convention"
+    domain: Core
+    adr: ADR-0001, ADR-0002
+    added: 2026-08-12
+  - id: TR-ef-014
+    status: active
+    source: design/gdd/entity-framework.md
+    requirement: "Load-time lifecycle suppression: events suppressed during teardown/recreate, single on_world_loaded after full restore, GameEntityID re-registration with Kaiju host, ID counter restored"
+    domain: Core
+    adr: ADR-0001, ADR-0002
+    added: 2026-08-12
+  - id: TR-ef-015
+    status: active
+    source: design/gdd/entity-framework.md
+    requirement: "Lifecycle performance: entity create ≤0.5ms p95 (1 component) / ≤2ms (9-component), destroy dispatch ≤2ms p95 with 10 subscribers"
+    domain: Core
+    adr: ADR-0001
+    added: 2026-08-12
+  - id: TR-ef-016
+    status: active
+    source: design/gdd/entity-framework.md
+    requirement: "Engine capability: game layer wraps Kaiju engine.Entity, no parallel entity/transform/event system, depends on events.EventWithArg[T], RegisterEntityData/DebugEntityDataRegistry"
+    domain: Engine
+    adr: ADR-0001
+    added: 2026-08-12
+
+  # ─── Camera System (2026-08-12 additions) ───
+  - id: TR-cam-005
+    status: active
+    source: design/gdd/camera-system.md
+    requirement: "State machine: Exploration/Conversation/Combat/Transition base states + overlay flags (Manual/Journal), priority Transition>Combat>Conversation>Exploration, one-deep preemption stack"
+    domain: Rendering
+    adr: ADR-0003
+    added: 2026-08-12
+  - id: TR-cam-006
+    status: active
+    source: design/gdd/camera-system.md
+    requirement: "Focus/follow: constant-velocity linear move-toward with distance clamping, party centroid unless spread > one viewport half-extent, follow speed ≥1.2× party walk speed, no auto-return after manual pan, Home/End keys"
+    domain: Rendering
+    adr: ADR-0003
+    added: 2026-08-12
+  - id: TR-cam-007
+    status: active
+    source: design/gdd/camera-system.md
+    requirement: "Pan/zoom input: edge scroll (dead zone 16px DPI-scaled, hysteresis, UI-panel-aware), drag pan (point-under-cursor, Hold/Toggle/Off modes), keyboard pan, gamepad pan/zoom, all rebindable"
+    domain: Platform
+    adr: ADR-0003
+    added: 2026-08-12
+  - id: TR-cam-008
+    status: active
+    source: design/gdd/camera-system.md
+    requirement: "Camera shake: screen-space percentage amplitudes 1.5-5.0%, 8Hz sine with falloff, deterministic (same event+time = identical output), largest-magnitude composition, Reduce Camera Motion ladder (Off/Reduced/Disabled)"
+    domain: Rendering
+    adr: ADR-0003
+    added: 2026-08-12
+  - id: TR-cam-009
+    status: active
+    source: design/gdd/camera-system.md
+    requirement: "Boundary enforcement: no-void rule via region art padding (~62u/side at Far/21:9), hard clamp, minimum region size ~142×147u at Default/16:9"
+    domain: Rendering
+    adr: ADR-0003
+    added: 2026-08-12
+  - id: TR-cam-010
+    status: active
+    source: design/gdd/camera-system.md
+    requirement: "Clip planes: near = −0.75×O (negative, prevents ground-plane clipping), far 1000u, resize reapplies ortho extents from current O without pop"
+    domain: Rendering
+    adr: ADR-0003
+    added: 2026-08-12
+  - id: TR-cam-011
+    status: active
+    source: design/gdd/camera-system.md
+    requirement: "Off-screen markers data contract: camera provides viewport_bounds + tracked_entities[] with action_state, clustering ≥3 within 40px, ≥3:1 contrast, party always shown"
+    domain: Rendering
+    adr: ADR-0003
+    added: 2026-08-12
+  - id: TR-cam-012
+    status: active
+    source: design/gdd/camera-system.md
+    requirement: "Silhouette/ghost rendering: mask pass (combatant meshes, per-entity color) + fullscreen composite; ghost pass with per-instance alpha, manual sort per frame; outlines unlit, screen-space, full opacity"
+    domain: Rendering
+    adr: ADR-0003
+    added: 2026-08-12
+  - id: TR-cam-013
+    status: active
+    source: design/gdd/camera-system.md
+    requirement: "Save/load contract: camera serializes position, zoom, per-context zoom prefs, base state, Manual flag, preemption stack — NOT centroid reset; save blocked during zoom/shake/fade/framing transitions"
+    domain: State
+    adr: ADR-0003, ADR-0002
+    added: 2026-08-12
+  - id: TR-cam-014
+    status: active
+    source: design/gdd/camera-system.md
+    requirement: "Audio listener: camera position = spatial audio listener (unshaken), exports forward/up vectors; engine gap: Kaiju Go wrapper lacks 3D audio API (C layer has it)"
+    domain: Rendering
+    adr: — (GAP — engine feasibility spike)
+    added: 2026-08-12
+  - id: TR-cam-015
+    status: active
+    source: design/gdd/camera-system.md
+    requirement: "Performance: camera update ≤1.0ms p95, allocation-free (0 allocs/frame), whole-frame render ≤16.6ms p95 @1080p / ≤22.2ms @3440×1440, camera memory ≤1MB"
+    domain: Rendering
+    adr: ADR-0003
+    added: 2026-08-12
+  - id: TR-cam-016
+    status: active
+    source: design/gdd/camera-system.md
+    requirement: "EF data contract: reads Transform.Position() for tracked set (~15 reads/frame), membership changes via lifecycle events, no per-frame spatial range queries, registers in Gameplay priority band"
+    domain: Rendering
+    adr: ADR-0003, ADR-0001
+    added: 2026-08-12
+
+  # ─── Asset & Scene Pipeline (2026-08-12 additions) ───
+  - id: TR-asset-006
+    status: active
+    source: design/gdd/asset-scene-pipeline.md
+    requirement: "Asset lifecycle: Source→Staging→Imported→Placed→Retired→Deprecated; Retired assets never deleted (saves may reference them); Deprecated flagged for next-major cleanup"
+    domain: Core
+    adr: ADR-0004
+    added: 2026-08-12
+  - id: TR-asset-007
+    status: active
+    source: design/gdd/asset-scene-pipeline.md
+    requirement: "Pipeline performance: import 50MB FBX ≤30s, scene load 200 entities ≤2s at 60fps"
+    domain: Core
+    adr: ADR-0004
+    added: 2026-08-12
+  - id: TR-asset-008
+    status: active
+    source: design/gdd/asset-scene-pipeline.md
+    requirement: "Runtime scene loading: load_scene(scene_id)→entity_ids[], missing asset → logged error + red-box marker, nav mesh bake failure → area non-navigable, scene still loads"
+    domain: Core
+    adr: ADR-0004, ADR-0001
+    added: 2026-08-12
+  - id: TR-asset-009
+    status: active
+    source: design/gdd/asset-scene-pipeline.md
+    requirement: "Pack mixing validation: no pack-exclusive outdoor scenes, >80% single-pack surface area → warning, color temperature consistency, cross-pack scale coherence within 10%"
+    domain: Core
+    adr: ADR-0004
+    added: 2026-08-12
+  - id: TR-asset-010
+    status: active
+    source: design/gdd/asset-scene-pipeline.md
+    requirement: "Texture pipeline: PNG/TGA→Kaiju native, power-of-two enforced, auto-downscale to 2048 cap with original preserved, hero-asset exemption path"
+    domain: Rendering
+    adr: ADR-0004
+    added: 2026-08-12
+  - id: TR-asset-011
+    status: active
+    source: design/gdd/asset-scene-pipeline.md
+    requirement: "Nav mesh: pre-computed at scene bake time, stored in scene file, cell_size 0.5u default (0.25–1.0), AI pathfinding routes around non-navigable gaps"
+    domain: Core
+    adr: ADR-0004, ADR-0009
+    added: 2026-08-12
+  - id: TR-asset-012
+    status: active
+    source: design/gdd/asset-scene-pipeline.md
+    requirement: "Save/Load delta contract: pipeline provides authored scene state, Save/Load serializes runtime delta, Retired assets must remain loadable"
+    domain: State
+    adr: ADR-0004, ADR-0002
+    added: 2026-08-12
+  - id: TR-asset-013
+    status: active
+    source: design/gdd/asset-scene-pipeline.md
+    requirement: "Semantic part tags: roof/ceiling/wall/ground per-mesh convention — blocking dependency for Camera roof removal, must be defined before first asset import"
+    domain: Core
+    adr: ADR-0004, ADR-0003
+    added: 2026-08-12
+  - id: TR-asset-014
+    status: active
+    source: design/gdd/asset-scene-pipeline.md
+    requirement: "Asset registry: auto-generated IDs at import, scene files reference by ID, staged library structure (Source/Staging/Imported/Placed), missing audio → warning + silence"
+    domain: Core
+    adr: ADR-0004
+    added: 2026-08-12
+
+  # ─── Save/Load (2026-08-12 additions) ───
+  - id: TR-save-006
+    status: active
+    source: design/gdd/save-load-system.md
+    requirement: "Save operations: 20 manual named slots (thumbnail, metadata), quick-save F5/quick-load F9, auto-save on region transitions + major story events, delete operation, F9 confirmation if combat active"
+    domain: State
+    adr: ADR-0002
+    added: 2026-08-12
+  - id: TR-save-007
+    status: active
+    source: design/gdd/save-load-system.md
+    requirement: "Performance: save ≤2s / load ≤3s for 500 entities, no frame drops below 30fps during save/load, save file ≤5MB typical"
+    domain: State
+    adr: ADR-0002
+    added: 2026-08-12
+  - id: TR-save-008
+    status: active
+    source: design/gdd/save-load-system.md
+    requirement: "Save restriction matrix: region transition/cutscene blocks all saves, auto-save blocked during conversation/combat, quick-save blocked with journal open"
+    domain: State
+    adr: ADR-0002
+    added: 2026-08-12
+  - id: TR-save-009
+    status: active
+    source: design/gdd/save-load-system.md
+    requirement: "Non-saved state: transient visual (animation/VFX/particles), audio positions (fade in), UI state, combat turn state (restart at round start), camera position (persisted — ADR-0002 amended 2026-08-12: position, zoom, per-context prefs, preemption stack in save scope)"
+    domain: State
+    adr: ADR-0002, ADR-0003
+    revised: 2026-08-12
+    added: 2026-08-12
+  - id: TR-save-010
+    status: active
+    source: design/gdd/save-load-system.md
+    requirement: "Steam vs non-Steam build detection: build tag or platform constant for conditional Steamworks API compilation (offline/GOG support)"
+    domain: Platform
+    adr: ADR-0002
+    added: 2026-08-12
+  - id: TR-save-011
+    status: active
+    source: design/gdd/save-load-system.md
+    requirement: "Save file data scope: header (version/checksum/timestamp) + metadata + entity table + component stores + world state + investigation; settings saved separately in settings.cfg"
+    domain: State
+    adr: ADR-0002, ADR-0010, ADR-0013
+    added: 2026-08-12
+  - id: TR-save-012
+    status: active
+    source: design/gdd/save-load-system.md
+    requirement: "Load triggers scene load: save stores region ID, load requests authored scene from Asset Pipeline"
+    domain: State
+    adr: ADR-0002, ADR-0004
+    added: 2026-08-12
+
+  # ─── Character Stats (2026-08-12 additions) ───
+  - id: TR-stats-006
+    status: active
+    source: design/gdd/character-stats-progression.md
+    requirement: "Attribute hard clamp: values below 3 treated as 3, above 18 treated as 18; status effects cannot reduce below 3"
+    domain: Core
+    adr: ADR-0006
+    added: 2026-08-12
+  - id: TR-stats-007
+    status: active
+    source: design/gdd/character-stats-progression.md
+    requirement: "Carry Capacity = (STR×10)+30 lbs encumbrance threshold"
+    domain: Core
+    adr: ADR-0006
+    added: 2026-08-12
+  - id: TR-stats-008
+    status: active
+    source: design/gdd/character-stats-progression.md
+    requirement: "Cross-system derived stats: Persuasion=CHA_mod + 1 per 2 threads resolved; Insight=WIS_mod + 1 per 5 NPCs questioned; Comprehension=INT_mod + 1 per 3 lore fragments — requires Thread Investigation progress counters"
+    domain: Core
+    adr: — (GAP — ADR-0006 extension needed)
+    added: 2026-08-12
+  - id: TR-stats-009
+    status: active
+    source: design/gdd/character-stats-progression.md
+    requirement: "Level-up: +max(1,CON_mod) HP, +1 attribute every 4th level, multi-level XP sequential, late-joining companions at player level with fixed spread"
+    domain: Core
+    adr: ADR-0006
+    added: 2026-08-12
+  - id: TR-stats-010
+    status: active
+    source: design/gdd/character-stats-progression.md
+    requirement: "Level-20 cap: XP accumulates past cap, no further level-ups, total XP preserved for display"
+    domain: State
+    adr: ADR-0006
+    added: 2026-08-12
+  - id: TR-stats-011
+    status: active
+    source: design/gdd/character-stats-progression.md
+    requirement: "Stats component schema: attributes[], derived[], level, xp; values mutate only at creation and level-up"
+    domain: Core
+    adr: ADR-0006, ADR-0001
+    added: 2026-08-12
+  - id: TR-stats-012
+    status: active
+    source: design/gdd/character-stats-progression.md
+    requirement: "Authoritative-writer pattern: Character Stats sole writer of Stats component; Combat/Party/AI/Thread/UI read from it"
+    domain: Core
+    adr: ADR-0006, ADR-0011
+    added: 2026-08-12
+  - id: TR-stats-013
+    status: active
+    source: design/gdd/character-stats-progression.md
+    requirement: "Character data authoring: player point-buy, party/NPCs fixed spreads, enemies simplified stat blocks (combat-relevant only)"
+    domain: Core
+    adr: ADR-0006
+    added: 2026-08-12
+  - id: TR-stats-014
+    status: active
+    source: design/gdd/character-stats-progression.md
+    requirement: "XP awards: thread 100×complexity, combat 20×total_enemy_level, revelation 200×tier, trust milestone 50×trust_level — cross-system event contract"
+    domain: Core
+    adr: ADR-0006, ADR-0011
+    added: 2026-08-12
+  - id: TR-stats-015
+    status: active
+    source: design/gdd/character-stats-progression.md
+    requirement: "Save/Load: Stats component serialized via Entity Framework and included in entity saves"
+    domain: State
+    adr: ADR-0006, ADR-0002
+    added: 2026-08-12
+  - id: TR-stats-016
+    status: active
+    source: design/gdd/character-stats-progression.md
+    requirement: "Performance: modifier ≤0.01ms, XP check ≤0.01ms, health recalc on level-up ≤0.1ms"
+    domain: Core
+    adr: ADR-0006
+    added: 2026-08-12
+  - id: TR-stats-017
+    status: active
+    source: design/gdd/character-stats-progression.md
+    requirement: "Tuning knobs as external config: starting_points 30, max_starting_attribute 16, xp_per_thread_hop 100, xp_per_enemy_level 20, xp_level_multiplier 300, level_cap 20, attribute_points_per_levels 4, hp_per_con_mod 1.0"
+    domain: Core
+    adr: ADR-0006
+    added: 2026-08-12
+
+  # ─── NPC Knowledge Graph (2026-08-12 additions) ───
+  - id: TR-kg-007
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    requirement: "Fact schema: fact_id, domain, type enum, content (first-person NL), trust_required 0-3, references[] GameEntityID, discovery_triggers[], contradicts[], leads_to[]{entity_id, topic_hint}"
+    domain: Core
+    adr: ADR-0005
+    added: 2026-08-12
+  - id: TR-kg-008
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    requirement: "Knowledge component: stores domain[], facts, trust_level; written by KG + Trust & Relationship; read by AI Dialogue Engine"
+    domain: Core
+    adr: ADR-0005, ADR-0001
+    added: 2026-08-12
+  - id: TR-kg-009
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    requirement: "Runtime query pipeline: match topic→domain→trust-filter→trigger-filter→return facts + personality + speech_style + knows_not to LLM; out-of-domain → in-character deflection"
+    domain: Core
+    adr: ADR-0005, ADR-0008
+    added: 2026-08-12
+  - id: TR-kg-010
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    requirement: "Static lifecycle: KG loaded at scene start, immutable at runtime; discovery tracked in PlayerKnowledge component, never by mutating the graph"
+    domain: Core
+    adr: ADR-0005, ADR-0010
+    added: 2026-08-12
+  - id: TR-kg-011
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    requirement: "Load-failure fallback: .kg parse failure → NPC created with zero domains/facts + fallback personality, error logged for content team"
+    domain: Core
+    adr: ADR-0005
+    added: 2026-08-12
+  - id: TR-kg-012
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    requirement: "Performance: fact query across 50 facts ≤0.5ms, full .kg file load ≤10ms"
+    domain: Core
+    adr: ADR-0005
+    added: 2026-08-12
+  - id: TR-kg-013
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    requirement: "Tuning knobs: default_trust_level 0, max_trust_level 3, max_domains_per_npc 4, max_facts_per_npc 50 soft cap, max_leads_per_fact 3"
+    domain: Core
+    adr: ADR-0005
+    added: 2026-08-12
+  - id: TR-kg-014
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    requirement: "Time-gated facts: discovery_triggers may be keyed to game time/light state — query must evaluate time conditions from Living Environment"
+    domain: Core
+    adr: ADR-0005, ADR-0007
+    added: 2026-08-12
+  - id: TR-kg-015
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    requirement: "Contradiction cross-referencing: contradicts[] references fact_ids from any NPC; both facts presented normally; when both discovered, Thread Investigation receives both with contradiction flag"
+    domain: Core
+    adr: ADR-0005, ADR-0010, ADR-0011
+    added: 2026-08-12
+  - id: TR-kg-016
+    status: active
+    source: design/gdd/npc-knowledge-graph.md
+    requirement: "leads_to hints populate investigation journal; if referenced entity destroyed → lead removed from LLM prompt, Thread Investigation surfaces alternative leads for broken chains"
+    domain: Core
+    adr: ADR-0005, ADR-0010
+    added: 2026-08-12
+
+  # ─── Living Environment (2026-08-12 additions) ───
+  - id: TR-env-006
+    status: active
+    source: design/gdd/living-environment.md
+    requirement: "Clock pause conditions: time advances only during exploration; paused during conversation, main menu, inventory, journal"
+    domain: Core
+    adr: ADR-0007
+    added: 2026-08-12
+  - id: TR-env-007
+    status: active
+    source: design/gdd/living-environment.md
+    requirement: "Save/Load: clock serialized as game-time value (minutes since midnight), restore tolerance ±1 game minute, light state derived from restored time, NPC schedule re-derived, wildlife not persisted (respawn)"
+    domain: State
+    adr: ADR-0007, ADR-0002
+    added: 2026-08-12
+  - id: TR-env-008
+    status: active
+    source: design/gdd/living-environment.md
+    requirement: "Light transition rules: conversation during transition pauses it, catches up over 1s on resume; combat start or wait completes transition instantly; no mid-combat transitions"
+    domain: Core
+    adr: ADR-0007
+    added: 2026-08-12
+  - id: TR-env-009
+    status: active
+    source: design/gdd/living-environment.md
+    requirement: "Rest point taxonomy: inn (full HP), camp (50% HP), unmarked safe location (none); wait blocked during combat/conversation/cutscenes"
+    domain: Core
+    adr: ADR-0007
+    added: 2026-08-12
+  - id: TR-env-010
+    status: active
+    source: design/gdd/living-environment.md
+    requirement: "Ambient wildlife: birds (flight paths, diurnal), deer/small mammals (graze, flee 8u, diurnal), insects (particle-based, fireflies at Dusk/Night), crickets audio at Night; no combat/quests/drops"
+    domain: Core
+    adr: ADR-0007
+    added: 2026-08-12
+  - id: TR-env-011
+    status: active
+    source: design/gdd/living-environment.md
+    requirement: "Wildlife performance: max 30 per region, culled beyond 60u, simplified meshes ≤200 tris, no shadows, density knob 0.3 (0.1–0.8), Deep Night = zero active wildlife"
+    domain: Core
+    adr: ADR-0007
+    added: 2026-08-12
+  - id: TR-env-012
+    status: active
+    source: design/gdd/living-environment.md
+    requirement: "Wildlife lifecycle: entities respawn based on time + spawn points, not persisted individually; refreshed on load and during wait"
+    domain: Core
+    adr: ADR-0007
+    added: 2026-08-12
+  - id: TR-env-013
+    status: active
+    source: design/gdd/living-environment.md
+    requirement: "Audio ambience driven by clock/light state: dawn birdsong, night crickets, evening ambience, ambient crossfade on transitions; wildlife audio muted when culled"
+    domain: Core
+    adr: ADR-0007
+    added: 2026-08-12
+  - id: TR-env-014
+    status: active
+    source: design/gdd/living-environment.md
+    requirement: "Lighting to renderer: light state feeds ambient color/intensity, shadow length, sky color interpolation; night warm light-pocket entities activate at Night, ≤25% at Deep Night"
+    domain: Rendering
+    adr: ADR-0007, ADR-0003
+    added: 2026-08-12
+  - id: TR-env-015
+    status: active
+    source: design/gdd/living-environment.md
+    requirement: "Map tint: Map System reads time/light state for day/night map tint"
+    domain: Core
+    adr: ADR-0007
+    added: 2026-08-12
+  - id: TR-env-016
+    status: active
+    source: design/gdd/living-environment.md
+    requirement: "Time-gated NPC knowledge: facts gated by game time via time-keyed discovery_triggers (shared with NPC Knowledge Graph)"
+    domain: Core
+    adr: ADR-0007, ADR-0005
+    added: 2026-08-12
+  - id: TR-env-017
+    status: active
+    source: design/gdd/living-environment.md
+    requirement: "Tuning knobs: time_ratio 10, dawn/dusk_duration 180 game min, night_light_state_count 2, wildlife_density 0.3, wait_speed_multiplier 100×"
+    domain: Core
+    adr: ADR-0007
+    added: 2026-08-12
+
+  # ─── AI Dialogue Engine (2026-08-12 additions — MAJOR REVISION) ───
+  - id: TR-ai-006
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    requirement: "Prompt caching: static core prefilled once per (npc_id, trust_level, exemplar_variant), multi-slot LRU 2-4 slots, ~448 MiB KV cache per slot at 4096 context, invalidated on trust/exemplar/NPC change"
+    domain: Performance
+    adr: ADR-0008
+    revised: 2026-08-12
+    added: 2026-08-12
+  - id: TR-ai-007
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    requirement: "Concurrency: single shared subprocess serializes all generation, queue depth 1, most-recent-question-wins, cancellation via slot abort, race-detector-clean"
+    domain: Threading
+    adr: ADR-0008
+    revised: 2026-08-12
+    added: 2026-08-12
+  - id: TR-ai-008
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    requirement: "Input sanitization: strip chat-format tokens, regex-detect instruction injection → authored deflection, whitelist player entity names, question cap 500 chars Unicode-safe"
+    domain: Scripting
+    adr: ADR-0008
+    revised: 2026-08-12
+    added: 2026-08-12
+  - id: TR-ai-009
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    requirement: "Response post-processing: streaming with sentence-buffered display, fuzzy entity resolution (Levenshtein ≤2), hallucination handling (pronoun substitution → strip), knows_not boundary enforcement, stop-string detection, empty→fallback"
+    domain: Scripting
+    adr: ADR-0008
+    revised: 2026-08-12
+    added: 2026-08-12
+  - id: TR-ai-010
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    requirement: "Repetition detection: token-level Jaccard vs predecessor, >85% → re-query with repetition_penalty 1.1, 80-85% deadband hysteresis, always-on baseline penalty 1.05"
+    domain: Scripting
+    adr: ADR-0008
+    revised: 2026-08-12
+    added: 2026-08-12
+  - id: TR-ai-011
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    requirement: "Conversation memory: rolling summary (2-3 bullets, ≤150 tok), disclosed-fact IDs persisted via PWS into save file, restored on reload with gap acknowledgment, exhausted-topic interception"
+    domain: State
+    adr: ADR-0008
+    revised: 2026-08-12
+    added: 2026-08-12
+  - id: TR-ai-012
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    requirement: "Per-NPC state machine: Unloaded/Loading/Ready/Generating/TextMode with explicit transitions, per-NPC state + global shared subprocess, TextMode scope rules (Global/Per-NPC/Transitional)"
+    domain: Scripting
+    adr: ADR-0008
+    added: 2026-08-12
+  - id: TR-ai-013
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    requirement: "Capability probe at startup: ~150-token benchmark measuring prefill+decode; pass requires decode ≥10 tok/s AND cold total ≤21.25s AND cached ≤12s; fail→TextMode for session"
+    domain: Platform
+    adr: ADR-0008
+    revised: 2026-08-12
+    added: 2026-08-12
+  - id: TR-ai-014
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    requirement: "Model warm-up: background subprocess load during main menu (GGUF<8s, total <12s NVMe/<20s SATA), prefill generic greeting to page mmap'd weights, main-menu progress indicator"
+    domain: Threading
+    adr: ADR-0008
+    added: 2026-08-12
+  - id: TR-ai-015
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    requirement: "Hardware minimums: 16 GB RAM, quad-core 3.0GHz+ AVX2, SSD required, GPU not required, peak RSS <10 GB total (model ~3.5-5GB + game ~2-4GB), model via Steam depots"
+    domain: Platform
+    adr: ADR-0008
+    added: 2026-08-12
+  - id: TR-ai-016
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    requirement: "Journal-canon boundary: Journal records only KG-verified facts (fact ID, canonical content, source NPC, trust level); LLM prose is ephemeral, journal entries from authoritative fact data"
+    domain: Scripting
+    adr: ADR-0008, ADR-0010
+    added: 2026-08-12
+  - id: TR-ai-017
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    requirement: "Prompt builder: pure function, no I/O, all data from calling systems; p95 construction ≤5ms at max budget"
+    domain: Performance
+    adr: ADR-0008
+    added: 2026-08-12
+  - id: TR-ai-018
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    requirement: "Sampler config: temperature per-NPC authored in KG (default 0.7, range 0.4-1.0), not auto-adjusted; repetition_penalty 1.05 baseline; sampler state per-conversation; cooldown ≥3 exchanges between adjustments"
+    domain: Scripting
+    adr: ADR-0008, ADR-0005
+    added: 2026-08-12
+  - id: TR-ai-019
+    status: active
+    source: design/gdd/ai-dialogue-engine.md
+    requirement: "Inference architecture open question: llama-server slot abort + KV cache reuse vs custom thin wrapper — requires ADR before implementation"
+    domain: Threading
+    adr: — (GAP — requires architecture decision)
+    added: 2026-08-12
+
+  # ─── Question System (2026-08-12 additions) ───
+  - id: TR-q-004
+    status: active
+    source: design/gdd/question-system.md
+    requirement: "Fact routing contract: matched domains → KG query (trust_level+domain+entity-ref UNION) → facts + sanitized question → AI Dialogue Engine; fallback routes all facts at low relevance with deflection"
+    domain: Scripting
+    adr: ADR-0005, ADR-0008
+    added: 2026-08-12
+  - id: TR-q-005
+    status: active
+    source: design/gdd/question-system.md
+    requirement: "Conversation context for matching: retains last 3 questions across any NPC to resolve anaphoric follow-ups; influences suggestion priority"
+    domain: Scripting
+    adr: ADR-0005
+    added: 2026-08-12
+  - id: TR-q-006
+    status: active
+    source: design/gdd/question-system.md
+    requirement: "Input contract: question capped at 500 chars Unicode-safe before routing (ADE builder has precondition guard), empty/whitespace rejected"
+    domain: Scripting
+    adr: ADR-0005
+    added: 2026-08-12
+  - id: TR-q-007
+    status: active
+    source: design/gdd/question-system.md
+    requirement: "Performance: topic matching ≤5ms, suggestion generation ≤10ms, no frame drops during question processing"
+    domain: Performance
+    adr: ADR-0005
+    added: 2026-08-12
+
+  # ─── Trust & Relationship (2026-08-12 additions) ───
+  - id: TR-trust-004
+    status: active
+    source: design/gdd/trust-relationship.md
+    requirement: "Trust freeze: after any trust decrease, no gains for 72 game hours (~7 real hours); requires game-clock time tracking per NPC; freeze_duration_hours knob 24-168"
+    domain: Core
+    adr: ADR-0011, ADR-0007
+    added: 2026-08-12
+  - id: TR-trust-005
+    status: active
+    source: design/gdd/trust-relationship.md
+    requirement: "Relationship metadata per NPC persisted: trust_events[], owes_favor, player_owes_favor, vouched_by[], vouched_for[], knows_secret[], betrayal_history[] — feeds ADE relationship context block"
+    domain: State
+    adr: ADR-0011, ADR-0008
+    added: 2026-08-12
+  - id: TR-trust-006
+    status: active
+    source: design/gdd/trust-relationship.md
+    requirement: "Initial trust configuration per NPC: default 0, story-critical 1, party members 1, antagonists capped 2, faction enemies capped 1"
+    domain: Core
+    adr: ADR-0011
+    added: 2026-08-12
+  - id: TR-trust-007
+    status: active
+    source: design/gdd/trust-relationship.md
+    requirement: "KG interface: Trust writes trust_level onto NPC Knowledge component gating fact access; provisional PWS get_flags/set_flags interface for persistence"
+    domain: Core
+    adr: ADR-0011, ADR-0005
+    added: 2026-08-12
+
+  # ─── Thread Investigation (2026-08-12 additions) ───
+  - id: TR-thread-006
+    status: active
+    source: design/gdd/thread-investigation.md
+    requirement: "Resolution model: discovered/confronted→all chain threads resolve/dead_end (auto on target NPC death, may reactivate)/merged (dedup); resolved threads move to history"
+    domain: Core
+    adr: ADR-0010
+    added: 2026-08-12
+  - id: TR-thread-007
+    status: active
+    source: design/gdd/thread-investigation.md
+    requirement: "Performance: thread creation ≤5ms of fact discovery, cross-reference check across 100 facts ≤1ms"
+    domain: Core
+    adr: ADR-0010
+    added: 2026-08-12
+
+  # ─── Tactical Combat Engine (2026-08-12 additions) ───
+  - id: TR-combat-010
+    status: active
+    source: design/gdd/tactical-combat-engine.md
+    requirement: "Performance: turn processing (AP calc, initiative sort, AI decision) ≤50ms, attack resolution ≤1ms"
+    domain: Physics
+    adr: ADR-0009
+    added: 2026-08-12
+  - id: TR-combat-011
+    status: active
+    source: design/gdd/tactical-combat-engine.md
+    requirement: "EF spatial capability: queries entities by spatial position for targeting; combat-area concept; environmental kills credited to environment (no XP unless player-triggered)"
+    domain: Physics
+    adr: ADR-0009, ADR-0001
+    added: 2026-08-12
+  - id: TR-combat-012
+    status: active
+    source: design/gdd/tactical-combat-engine.md
+    requirement: "Loot contract: on enemy defeat, request_loot_drop(enemy_type, region_tier) → Loot & Economy returns items+gold (Hard dependency — combat has no reward without it)"
+    domain: Physics
+    adr: ADR-0015
+    added: 2026-08-12
+
+  # ─── Persistent World State (2026-08-12 additions) ───
+  - id: TR-pws-005
+    status: active
+    source: design/gdd/persistent-world-state.md
+    requirement: "Event submission pipeline: validate→apply flag_mutations→append memory log→broadcast on_world_state_changed same-frame; events in submission order; same-frame conflicts → EF write arbitration"
+    domain: Core
+    adr: ADR-0013, ADR-0011
+    added: 2026-08-12
+  - id: TR-pws-006
+    status: active
+    source: design/gdd/persistent-world-state.md
+    requirement: "Query API: GetWorldFlags, GetWorldFlag, GetMemoryLog (newest first, limit+since), GetEntitiesWithFlag, GetRecentWorldEvents (cross-entity world-diff); indexed on entity_id, flag-name, region_id"
+    domain: Core
+    adr: ADR-0013
+    added: 2026-08-12
+  - id: TR-pws-007
+    status: active
+    source: design/gdd/persistent-world-state.md
+    requirement: "Save/Load: dedicated World State save section (all world.* flags + memory logs); restore→re-evaluate evolution rules for elapsed time; migration pass before restore; destroyed-entity logs preserved"
+    domain: State
+    adr: ADR-0013, ADR-0002
+    added: 2026-08-12
+  - id: TR-pws-008
+    status: active
+    source: design/gdd/persistent-world-state.md
+    requirement: "Performance: SubmitWorldEvent ≤0.5ms p95, GetWorldFlags ≤0.1ms p95, Go benchmark instrumentation"
+    domain: Core
+    adr: ADR-0013
+    added: 2026-08-12
+
+  # ─── Party System (2026-08-12 additions) ───
+  - id: TR-party-002
+    status: active
+    source: design/gdd/party-system.md
+    requirement: "Companion state machine: Unrecruited/InParty/InPool/Departed; Departed carries persisted cause; PC slot always locked; death blocks re-recruitment; departures deferred during combat/conversation"
+    domain: Core
+    adr: ADR-0016 (Proposed)
+    added: 2026-08-12
+  - id: TR-party-003
+    status: active
+    source: design/gdd/party-system.md
+    requirement: "Companion AI behavior modes (Aggressive/Defensive/Passive), set during exploration, persist across save/load; TCE translates mode→target selection+ability-use in AllyTurn"
+    domain: Core
+    adr: ADR-0016 (Proposed)
+    added: 2026-08-12
+  - id: TR-party-004
+    status: active
+    source: design/gdd/party-system.md
+    requirement: "Scout system: single scout designation, detection range 10+WIS_mod×2, opposed check d20+WIS_mod vs d20+threat_stealth+terrain, forward 180° cone, darkness/fog disadvantage, staged alert"
+    domain: Core
+    adr: ADR-0016 (Proposed)
+    added: 2026-08-12
+  - id: TR-party-005
+    status: active
+    source: design/gdd/party-system.md
+    requirement: "Formation: default loose diamond at 3u spacing, trailing arc for other sizes, front/back rank config at rest points, combat deploys companions at formation positions ±1u"
+    domain: Core
+    adr: ADR-0016 (Proposed)
+    added: 2026-08-12
+  - id: TR-party-006
+    status: active
+    source: design/gdd/party-system.md
+    requirement: "Companion knowledge contribution: active companions' Knowledge domains available to Question System; exclusive fragments inaccessible while absent; interjection interface (Hard ADE contract): domain-match ≥0.7, caps 1/companion 3/conversation, thread-resolution witness reactions guaranteed"
+    domain: Core
+    adr: ADR-0016 (Proposed)
+    added: 2026-08-12
+  - id: TR-party-007
+    status: active
+    source: design/gdd/party-system.md
+    requirement: "Rest-point gating: party management only at rest_point entities; unavailable during combat/conversation/region transitions; party management pauses the live world"
+    domain: Core
+    adr: ADR-0016 (Proposed)
+    added: 2026-08-12
+
+  # ─── Faction System (2026-08-12 additions) ───
+  - id: TR-faction-002
+    status: active
+    source: design/gdd/faction-system.md
+    requirement: "Faction data model: Faction component on every NPC (faction_id, standing) + player entity; faction definitions authored per region in YAML (ID, display name, standing range, relationships, territory, home region)"
+    domain: Core
+    adr: — (GAP — needs Faction ADR)
+    added: 2026-08-12
+  - id: TR-faction-003
+    status: active
+    source: design/gdd/faction-system.md
+    requirement: "Standing change events: thread +10..+30, kills −5/−20, dialogue ±5..±15, allied bonus +10/−10; propagation ally_shift=round(change×0.5) clamped ±15; tier crossing fires faction_tier_changed; deferred in conversation; 2× penalty dual-allied-hostile; defeated faction marking"
+    domain: Core
+    adr: — (GAP — needs Faction ADR or ADR-0011 extension)
+    added: 2026-08-12
+  - id: TR-faction-004
+    status: active
+    source: design/gdd/faction-system.md
+    requirement: "Territory control: ownership as world.faction.* flags, changes via major world events, Map System reads flags for borders, shop price modifier 1.0−standing/400, guards grant/deny passage"
+    domain: Core
+    adr: — (GAP — needs Faction ADR)
+    added: 2026-08-12
+
+  # ─── Investigation Journal ───
+  - id: TR-journal-001
+    status: active
+    source: design/gdd/investigation-journal.md
+    requirement: "Camera contract: journal open triggers camera Journal state, camera frozen while open, released on close"
+    domain: UI
+    adr: ADR-0012, ADR-0003
+    added: 2026-08-12
+  - id: TR-journal-002
+    status: active
+    source: design/gdd/investigation-journal.md
+    requirement: "Reads Thread Investigation: threads (description, source NPC, status, age), chains (summary, counts, status incl. revelations_available), facts (content, source, trust, timestamp, contradiction), contradictions (side-by-side), revelation threshold"
+    domain: UI
+    adr: ADR-0012, ADR-0010
+    added: 2026-08-12
+  - id: TR-journal-003
+    status: active
+    source: design/gdd/investigation-journal.md
+    requirement: "Entity index: reads entity names/types from EF; entity references rendered as clickable chips with detail view + bottom quick-ref bar"
+    domain: UI
+    adr: ADR-0012, ADR-0001
+    added: 2026-08-12
+  - id: TR-journal-004
+    status: active
+    source: design/gdd/investigation-journal.md
+    requirement: "Input: dedicated key (default J) via keybinding registry + main-menu entry"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-journal-005
+    status: active
+    source: design/gdd/investigation-journal.md
+    requirement: "Map centering: clicking a thread with a known location issues centering command to Map System"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-journal-006
+    status: active
+    source: design/gdd/investigation-journal.md
+    requirement: "Contradiction write-back: auto-created Resolve contradiction thread; cannot dismiss without resolving or marking dead end"
+    domain: UI
+    adr: ADR-0012, ADR-0010
+    added: 2026-08-12
+  - id: TR-journal-007
+    status: active
+    source: design/gdd/investigation-journal.md
+    requirement: "State persistence: dismissed revelation prompts reappear on next open; acted-upon prompts must not reappear"
+    domain: State
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-journal-008
+    status: active
+    source: design/gdd/investigation-journal.md
+    requirement: "Audio ducking: ambient mutes on open, restores on close; parchment unfurl/roll SFX"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-journal-009
+    status: active
+    source: design/gdd/investigation-journal.md
+    requirement: "Performance: journal opens ≤200ms, chain detail renders ≤50ms for up to 20 threads"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+
+  # ─── Dialogue UI ───
+  - id: TR-dialogue-001
+    status: active
+    source: design/gdd/dialogue-ui.md
+    requirement: "Topic suggestion chips: max 6, horizontally scrollable, generated by Question System, refreshed after each NPC response, click fills text input"
+    domain: UI
+    adr: ADR-0012, ADR-0005
+    added: 2026-08-12
+  - id: TR-dialogue-002
+    status: active
+    source: design/gdd/dialogue-ui.md
+    requirement: "Async LLM generation: UI state machine Hidden/Active/Processing/Response; input disabled during Processing; must not block render loop; three-dot thinking animation 0.5s/dot"
+    domain: UI
+    adr: ADR-0012, ADR-0008
+    added: 2026-08-12
+  - id: TR-dialogue-003
+    status: active
+    source: design/gdd/dialogue-ui.md
+    requirement: "Degraded-mode contract: degraded responses from ADE render as plain text (no typewriter) with visible degraded indicator"
+    domain: UI
+    adr: ADR-0012, ADR-0008
+    added: 2026-08-12
+  - id: TR-dialogue-004
+    status: active
+    source: design/gdd/dialogue-ui.md
+    requirement: "Trust indicator: live trust level feed (amber border glow at trust ≥1, full glow at 3); portrait border pulses amber 500ms on mid-conversation trust increase"
+    domain: UI
+    adr: ADR-0012, ADR-0011
+    added: 2026-08-12
+  - id: TR-dialogue-005
+    status: active
+    source: design/gdd/dialogue-ui.md
+    requirement: "Conversation log: scrollable history, newest bottom, auto-scroll, per-message alignment (player amber-left / NPC parchment-right), cleared on conversation end"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-dialogue-006
+    status: active
+    source: design/gdd/dialogue-ui.md
+    requirement: "UI SFX events: parchment unfurl/roll, quill scratch on submit, soft chime on trust increase, per-character tick at typewriter rate (throttled)"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+
+  # ─── Combat UI ───
+  - id: TR-combat-ui-001
+    status: active
+    source: design/gdd/combat-ui.md
+    requirement: "Turn order bar: initiative-ordered portraits from TCE, current-turn amber highlight, upcoming dimmed, hover shows name+HP"
+    domain: UI
+    adr: ADR-0012, ADR-0009
+    added: 2026-08-12
+  - id: TR-combat-ui-002
+    status: active
+    source: design/gdd/combat-ui.md
+    requirement: "Live AP updates: AP bar depletes and numeric counter counts down same frame as AP spend events"
+    domain: UI
+    adr: ADR-0012, ADR-0009
+    added: 2026-08-12
+  - id: TR-combat-ui-003
+    status: active
+    source: design/gdd/combat-ui.md
+    requirement: "World-space overlay: health bars above combatants, floating damage/miss/crit numbers anchored to isometric entities; crit triggers camera shake via Camera System"
+    domain: UI
+    adr: ADR-0012, ADR-0009, ADR-0003
+    added: 2026-08-12
+  - id: TR-combat-ui-004
+    status: active
+    source: design/gdd/combat-ui.md
+    requirement: "Ability menu: action grid from TCE (Move/Attack/Abilities/Items/Defend/Wait), AP-cost gating (greyed when insufficient), hotkeys 1-6"
+    domain: UI
+    adr: ADR-0012, ADR-0009
+    added: 2026-08-12
+  - id: TR-combat-ui-005
+    status: active
+    source: design/gdd/combat-ui.md
+    requirement: "Targeting queries: per-hover hit chance display, range line attacker→cursor, valid/invalid highlighting, flanking arcs (blue), cover shield icons; requires TCE query per cursor position"
+    domain: UI
+    adr: ADR-0012, ADR-0009
+    added: 2026-08-12
+  - id: TR-combat-ui-006
+    status: active
+    source: design/gdd/combat-ui.md
+    requirement: "Victory/defeat screen: full-screen overlay with XP summary per party member; defeat issues load-save command to Save/Load System"
+    domain: UI
+    adr: ADR-0012, ADR-0009, ADR-0002
+    added: 2026-08-12
+  - id: TR-combat-ui-007
+    status: active
+    source: design/gdd/combat-ui.md
+    requirement: "Combat audio events: type-specific impacts, heavy impact+chime on crit, enemy death sound, victory fanfare"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+
+  # ─── Character & Inventory UI ───
+  - id: TR-ci-001
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Text scaling: all text respects ui_text_scale setting (0.75×–1.5×)"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-ci-002
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Drag-and-drop equipment: drag to/from slots, right-click unequip, double-click equip/use, incompatible-slot rejection; requires Kaiju UI drag-drop (engine gap)"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-ci-003
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Stats data feed: reads six attributes, modifiers, derived stats, level, XP from Character Stats; level-up screen writes attribute point allocation"
+    domain: UI
+    adr: ADR-0012, ADR-0006
+    added: 2026-08-12
+  - id: TR-ci-004
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Equipment write-through: equip/unequip commits immediately; forced close never discards; all derived stats recalculate within one frame"
+    domain: UI
+    adr: ADR-0012, ADR-0006
+    added: 2026-08-12
+  - id: TR-ci-005
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Party feed: active roster + recruitment pool (greyed), companion metadata (trust level, knowledge domains, role/archetype, behavior glyph) from Party System"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-ci-006
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Level-up modal queueing: modal spawns for leveled character regardless of selection; simultaneous level-ups queue in party order (player first); mandatory allocation, no cancel"
+    domain: UI
+    adr: ADR-0012, ADR-0006
+    added: 2026-08-12
+  - id: TR-ci-007
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "UI session state (selected tab, member, scroll) is session-only — never serialized; last-viewed member resets to player character on new session"
+    domain: State
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-ci-008
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Keybindings: C/I keys from keybinding registry, rebindable in Settings"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-ci-009
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Modal gating: C/I blocked during combat; forced close on combat start/conversation start/region transition; opening over conversation allowed (dims behind overlay, stat checks use snapshot)"
+    domain: UI
+    adr: ADR-0012, ADR-0009
+    added: 2026-08-12
+  - id: TR-ci-010
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Legacy inventory: departed companion's equipment held 7 in-game days (game-clock driven), then transferred to home-region stash; departure journal entry notes items"
+    domain: State
+    adr: ADR-0012, ADR-0007
+    added: 2026-08-12
+  - id: TR-ci-011
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Unidentified item display: ? icon, Unidentified [Type] muted name, stats hidden; equippable but bonuses not applied; driven by identified flag in Inventory data"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-ci-012
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Gold display cap: 999,999 displays 999,999+; accumulation unbounded (cosmetic cap only)"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-ci-013
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Toast system: duration-configurable notifications (default 2000ms), Inventory full amber toast"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-ci-014
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Screen reader announcements: screens announced by name; requires accessibility seam in Kaiju UI (engine gap)"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-ci-015
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Inventory data model: stack sizes, category grouping, filter buttons, sort (category→name), search-by-name, 6-column scrollable grid"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-ci-016
+    status: active
+    source: design/gdd/character-inventory-ui.md
+    requirement: "Shared equipment slot registry: 8 slots (Head/Chest/Hands/Legs/Main Hand/Off Hand/Accessory 1/2) consumed by C&I UI, Loot & Economy, TCE"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+
+  # ─── Map System ───
+  - id: TR-map-001
+    status: active
+    source: design/gdd/map-system.md
+    requirement: "Local map data: discovered locations (named pins), NPC last-seen positions, cleared/destroyed markers (ink X), player position+facing; sourced from PWS/Living Environment"
+    domain: UI
+    adr: — (GAP — needs Map ADR)
+    added: 2026-08-12
+  - id: TR-map-002
+    status: active
+    source: design/gdd/map-system.md
+    requirement: "World map (Alpha): region state summaries (cleared/visited/unexplored), travel routes between regions, faction territory overlays; supports region travel"
+    domain: UI
+    adr: — (GAP — needs Map ADR)
+    added: 2026-08-12
+  - id: TR-map-003
+    status: active
+    source: design/gdd/map-system.md
+    requirement: "Thread pins: active threads (amber dot) and prioritized threads (amber star) fed from Thread Investigation"
+    domain: UI
+    adr: ADR-0012, ADR-0010
+    added: 2026-08-12
+  - id: TR-map-004
+    status: active
+    source: design/gdd/map-system.md
+    requirement: "M key binding (rebindable via keybinding registry)"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-map-005
+    status: active
+    source: design/gdd/map-system.md
+    requirement: "NPC last-seen positions persisted across sessions from Persistent World State"
+    domain: State
+    adr: ADR-0012, ADR-0013
+    added: 2026-08-12
+  - id: TR-map-006
+    status: active
+    source: design/gdd/map-system.md
+    requirement: "Centering command API: map exposes pan/center-on-location-or-entity; consumed by Journal (thread click)"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-map-007
+    status: active
+    source: design/gdd/map-system.md
+    requirement: "Ink-linework map rendering: parchment base with ink-drawn geography (linework rendering capability)"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+
+  # ─── Audio System ───
+  - id: TR-audio-001
+    status: active
+    source: design/gdd/audio-system.md
+    requirement: "Four-layer mixer: ambient, music, SFX, voice (deferred: text-only at MVP/VS) with per-layer volume control (master/music/SFX/ambient/dialogue)"
+    domain: Audio
+    adr: ADR-0014
+    added: 2026-08-12
+  - id: TR-audio-002
+    status: active
+    source: design/gdd/audio-system.md
+    requirement: "Ambient layer driven by Living Environment time-of-day + light state + region; 5-second crossfades between ambient states"
+    domain: Audio
+    adr: ADR-0014
+    added: 2026-08-12
+  - id: TR-audio-003
+    status: active
+    source: design/gdd/audio-system.md
+    requirement: "Adaptive music state machine: exploration/combat/revelation cues; 1-second transition on combat start/end"
+    domain: Audio
+    adr: ADR-0014
+    added: 2026-08-12
+  - id: TR-audio-004
+    status: active
+    source: design/gdd/audio-system.md
+    requirement: "Spatial audio: camera position = audio listener; positional attenuation; off-screen sounds provide directional cues"
+    domain: Audio
+    adr: ADR-0014
+    added: 2026-08-12
+  - id: TR-audio-005
+    status: active
+    source: design/gdd/audio-system.md
+    requirement: "SFX event contract: combat impacts, UI feedback (parchment, quill, clicks), footstep surface types (stone/wood/grass/water), environmental (door, lantern, fire)"
+    domain: Audio
+    adr: ADR-0014
+    added: 2026-08-12
+  - id: TR-audio-006
+    status: active
+    source: design/gdd/audio-system.md
+    requirement: "Ducking/filtering: ambient mutes on overlay open (journal); pause applies low-pass filter on game audio (SoLoud filter wrapper — deferred engine work)"
+    domain: Audio
+    adr: ADR-0014
+    added: 2026-08-12
+  - id: TR-audio-007
+    status: active
+    source: design/gdd/audio-system.md
+    requirement: "Audio output device selection: SoLoud device enumeration wrapper (deferred engine work)"
+    domain: Audio
+    adr: ADR-0014
+    added: 2026-08-12
+  - id: TR-audio-008
+    status: active
+    source: design/gdd/audio-system.md
+    requirement: "Mute when unfocused: setting requires platform focus-event handling"
+    domain: Audio
+    adr: ADR-0014
+    added: 2026-08-12
+
+  # ─── Main Menu & Settings ───
+  - id: TR-menu-001
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "7-state screen-flow state machine (TitleScreen/LoadGame/InGame/PauseMenu/SaveGame/Settings/Loading); Settings remembers entry point for back-destination; InGame→TitleScreen requires confirmation"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-menu-002
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "settings.cfg JSON persistence: per-user, not per-save; json.Decode on boot; missing/corrupt→defaults+first-launch prompt; instant apply on change; each system declares its settings schema"
+    domain: State
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-menu-003
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "Debounced settings write: dirty-flag + flush within 500ms or clean shutdown; never synchronous disk I/O in render loop; write failure keeps in-memory, retries next change"
+    domain: Threading
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-menu-004
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "Display-mode preview: 3-second preview with Keep/Revert, auto-revert after 15s; game never permanently locks into unusable display mode"
+    domain: Platform
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-menu-005
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "Keybinding model: per-action primary+secondary bindings as [modifier]+[key]; atomic one-hop conflict resolution; reserved keys rebindable with warning; gamepad preset profiles at MVP; Input Binding System owns runtime registry"
+    domain: UI
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-menu-006
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "Save slot data contract: 22 slots (20+auto+quick), metadata (slot ID, name, character, playtime, region, thumbnail 320×180, timestamp), sorted last-modified descending, overwrite confirmation, corrupted-save dialog"
+    domain: UI
+    adr: ADR-0012, ADR-0002
+    added: 2026-08-12
+  - id: TR-menu-007
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "Save thumbnail capture: 320×180 PNG from game viewport (engine screenshot/framebuffer capability)"
+    domain: Engine
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-menu-008
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "Steam Cloud: sync on launch, conflict modal (Keep Local/Cloud/Decide Later), unresolved→persistent banner+auto-saves blocked, backup 30 days, offline→local-only; Steam RemoteStorage wrapper deferred engine work"
+    domain: Platform
+    adr: ADR-0012, ADR-0002
+    added: 2026-08-12
+  - id: TR-menu-009
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "Pause freeze: Escape suspends engine update loop for ALL simulation systems; zero game logic advances; 300ms toggle cooldown; blocked during cutscenes/transitions/save; input locked during Loading"
+    domain: Threading
+    adr: ADR-0012, ADR-0007
+    added: 2026-08-12
+  - id: TR-menu-010
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "Pause dim layering: world dims to 30% over 200ms; combat HUD above dim layer; HUD not re-rendered while paused (draw-call delta=0)"
+    domain: Rendering
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-menu-011
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "Screen transitions: 250ms crossfade for screen-to-screen; Loading uses hard cut to black; input not processed during crossfades; frame-rate independent timing"
+    domain: Threading
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-menu-012
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "First-launch accessibility prompt: one-time modal over title screen (Reduce Camera Motion: Reduced; Subtitles: On; Remember my choice); keyboard+gamepad navigable; no timer; persisted to settings.cfg; re-runnable from Settings→Accessibility"
+    domain: UI
+    adr: ADR-0012, ADR-0003
+    added: 2026-08-12
+  - id: TR-menu-013
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "Graphics settings: resolution, display mode, FPS cap, VSync via engine config; deferred engine caps greyed with Coming Soon at MVP (VSync reconfig, texture quality, AA, audio device, Steam Cloud, pause low-pass)"
+    domain: Platform
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-menu-014
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "Performance: Settings screen (6 categories) UI update ≤2ms p95; pause over combat (10 combatants, full HUD) frame time ≤16.6ms p95"
+    domain: Performance
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-menu-015
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "Testability seams: injectable game-time clock; fixed-step 60Hz simulation harness with frame-stepping; per-system TicksAdvanced() freeze assertions; fade assertions via clamp(t/duration,0,1)"
+    domain: Threading
+    adr: ADR-0012
+    added: 2026-08-12
+  - id: TR-menu-016
+    status: active
+    source: design/gdd/main-menu-and-settings.md
+    requirement: "Screen-space rendering: menu UI unaffected by camera shake/zoom/transitions; edge-scroll suppressed when cursor over any UI panel"
+    domain: UI
+    adr: ADR-0012, ADR-0003
+    added: 2026-08-12
+
+  # ─── Loot & Economy ───
+  - id: TR-loot-001
+    status: active
+    source: design/gdd/loot-economy.md
+    requirement: "Item data schema: item_id, name, type, subtype, rarity (5 tiers with stat budgets+value multipliers), stats map, weight, value, stack_size, description, icon_ref, equipment_slot (shared registry), required_attrs, identified, region_tier"
+    domain: Economy
+    adr: ADR-0015
+    added: 2026-08-12
+  - id: TR-loot-002
+    status: active
+    source: design/gdd/loot-economy.md
+    requirement: "Loot tables: keyed by source category (enemy tiers, container types, merchant) × region tier; weighted rolls; conditional gates (thread, trust, faction, discovery); deterministic/seeded RNG for statistical ACs"
+    domain: Economy
+    adr: ADR-0015
+    added: 2026-08-12
+  - id: TR-loot-003
+    status: active
+    source: design/gdd/loot-economy.md
+    requirement: "Merchant/shop model: tiered inventory+rarity ceiling per shop tier; restock 72-240 game hours; pricing base×faction×CHA barter (floor 0.25×, sell 0.25×); trust-gated stock; buyback pool 72h; shop state machine; hostile-faction refusal"
+    domain: Economy
+    adr: ADR-0015
+    added: 2026-08-12
+  - id: TR-loot-004
+    status: active
+    source: design/gdd/loot-economy.md
+    requirement: "Identification state machine: Common/Uncommon auto-identify on pickup; Rare+ unidentified (stats hidden, equippable without bonuses); cost formula with INT discount (min 5g); camp self-identify once per rest (INT≥14 Rare, ≥16 Epic); Legendary always merchant/thread; re-identifying equipped snaps stats"
+    domain: Economy
+    adr: ADR-0015
+    added: 2026-08-12
+  - id: TR-loot-005
+    status: active
+    source: design/gdd/loot-economy.md
+    requirement: "Container contract: EF Container component (contents, capacity, is_locked, indestructible) + InteractionType.loot; loot UI; partial-loot tracking; body looting (persist 72h, thread-critical auto-loot); locked: key/lockpick(DEX)/forced(STR,50% destroy)"
+    domain: Economy
+    adr: ADR-0015
+    added: 2026-08-12
+  - id: TR-loot-006
+    status: active
+    source: design/gdd/loot-economy.md
+    requirement: "Action API: L&E owns Inventory component write path; equip/unequip/sell/drop/identify as actions; TCE triggers request_loot_drop; gold auto-looted on interaction; quest items non-sellable/non-droppable"
+    domain: Economy
+    adr: ADR-0015
+    added: 2026-08-12
+  - id: TR-loot-007
+    status: active
+    source: design/gdd/loot-economy.md
+    requirement: "Persistence: looted-container state, restock timers, merchant buyback, shop stock, body despawn serialized (EF components + loot-table state); must survive sessions"
+    domain: State
+    adr: ADR-0015
+    added: 2026-08-12
+  - id: TR-loot-008
+    status: active
+    source: design/gdd/loot-economy.md
+    requirement: "Cross-system data reads: faction.standing (price, refusal), trust_level (gated stock, buyback), STR (carry, equip, forced-open), INT (identify discount, self-identify), CHA (barter modifier)"
+    domain: Economy
+    adr: ADR-0015
+    added: 2026-08-12

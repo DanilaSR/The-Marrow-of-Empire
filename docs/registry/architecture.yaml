@@ -43,7 +43,19 @@ last_updated: "2026-08-11"
 # interface: how other systems access this state (read-only property, method call,
 #   signal, shared resource, etc.) — this is the contract other ADRs depend on.
 
-state_ownership: []
+state_ownership:
+  - state: inventory_component
+    status: active
+    owner_system: loot-economy
+    adr: docs/architecture/adr-0015-loot-economy.md
+    interface: "EconomySystem.Action API (EquipItem, UnequipItem, SellItem, BuyItem, IdentifyItem, DropItem, LootContainer) — sole write path"
+    write_access: loot-economy-only
+    referenced_by:
+      - docs/architecture/adr-0015-loot-economy.md
+      - docs/architecture/adr-0001-entity-architecture.md
+      - docs/architecture/adr-0009-combat-engine.md
+    added: 2026-08-12
+    revised: ""
 
 # Example:
 #
@@ -86,6 +98,35 @@ interfaces:
     added: 2026-08-11
     revised: ""
 
+  - contract: equipment_slot_registry
+    status: active
+    pattern: shared_resource
+    producer: loot-economy
+    consumers:
+      - character-inventory-ui   # reads slot definitions for equip UI
+      - tactical-combat-engine   # reads equipped item stats for damage calc
+    adr: docs/architecture/adr-0015-loot-economy.md
+    signal_signature: "8 slots: head, chest, hands, legs, main_hand, off_hand, accessory_1, accessory_2"
+    referenced_by:
+      - docs/architecture/adr-0015-loot-economy.md
+      - docs/architecture/adr-0009-combat-engine.md
+    added: 2026-08-12
+    revised: ""
+
+  - contract: audio_sfx_oneshot
+    status: active
+    pattern: event_bus
+    producer: any_system
+    consumers:
+      - audio-system          # subscribes to audio.sfx_oneshot, plays one-shot sound
+    adr: docs/architecture/adr-0014-audio-system.md
+    signal_signature: "audio.sfx_oneshot (SoundID: uint32, WorldPosition: [3]float32, Volume: float32)"
+    referenced_by:
+      - docs/architecture/adr-0014-audio-system.md
+      - docs/architecture/adr-0011-event-bus-architecture.md
+    added: 2026-08-12
+    revised: ""
+
 # Example:
 #
 # interfaces:
@@ -113,11 +154,28 @@ interfaces:
 # Register a budget when an ADR explicitly claims a frame time allocation.
 # The registry lets /architecture-review verify the total doesn't exceed the target.
 
-performance_budgets: []
+performance_budgets:
+  - system: audio-system
+    status: active
+    budget_ms: 0.5
+    adr: docs/architecture/adr-0014-audio-system.md
+    notes: "Ambient crossfade + music state machine + SFX dispatch combined. Measured at p95 with combat active (10 SFX events/frame)."
+    referenced_by:
+      - docs/architecture/adr-0014-audio-system.md
+    added: 2026-08-12
+    revised: ""
+
+  - system: ai-dialogue-engine
+    status: active
+    budget_ms: 0.035
+    adr: docs/architecture/adr-0008-llm-inference-integration.md
+    notes: "Prompt builder <5ms p95 + post-processing <30ms total. Non-blocking — inference runs in separate process. Does NOT include LLM generation time (external process)."
+    referenced_by:
+      - docs/architecture/adr-0008-llm-inference-integration.md
+    added: 2026-08-12
+    revised: ""
 
 # Example:
-#
-# performance_budgets:
 #   - target_fps: 60
 #     total_frame_budget_ms: 16.6
 #     platform: PC             # PC | Console | Mobile | All
@@ -144,11 +202,41 @@ performance_budgets: []
 # Register an API decision when the choice is non-obvious and other ADRs might
 # make a different choice for the same purpose without knowing this was decided.
 
-api_decisions: []
+api_decisions:
+  - purpose: audio_backend
+    status: active
+    api: kaiju/src/platform/audio/ (SoLoud via CGo)
+    not: external audio library / FMOD / Wwise
+    adr: docs/architecture/adr-0014-audio-system.md
+    reason: "Kaiju Engine ships SoLoud as its sole audio backend (prebuilt libsoloud_*.a). Full C API is in soloud_c.h; Go wrapper currently exposes only basic play/stop/mute — CGo extension required for per-voice volume, fades, 3D spatial, filters."
+    referenced_by:
+      - docs/architecture/adr-0014-audio-system.md
+    added: 2026-08-12
+    revised: ""
+
+  - purpose: item_data_format
+    status: active
+    api: Per-region YAML files (assets/items/{region_slug}.yaml)
+    not: Go hardcoded structs / single JSON database / runtime procedural generation
+    adr: docs/architecture/adr-0015-loot-economy.md
+    reason: "Data-driven content separable from engine. Per-region files prevent cross-region contamination and reduce merge conflicts. Consistent with KG .kg file pattern (ADR-0005)."
+    referenced_by:
+      - docs/architecture/adr-0015-loot-economy.md
+    added: 2026-08-12
+    revised: ""
+
+  - purpose: llm_inference_backend
+    status: active
+    api: llama.cpp subprocess via stdin/stdout JSONL IPC (or local socket)
+    not: in-process CGo for models >500M / HTTP server mode / cloud API
+    adr: docs/architecture/adr-0008-llm-inference-integration.md
+    reason: "Process isolation, crash independence, memory separation. Prompt caching via llama-server slot-level KV cache reuse with cache key (npc_id, trust_level, exemplar_variant). Slot abort for cancellation (preserves KV cache, does not consume restart budget)."
+    referenced_by:
+      - docs/architecture/adr-0008-llm-inference-integration.md
+    added: 2026-08-12
+    revised: ""
 
 # Example:
-#
-# api_decisions:
 #   - purpose: physics_raycast
 #     status: active
 #     api: PhysicsServer3D.space_get_direct_state()
@@ -170,7 +258,13 @@ api_decisions: []
 # Register a pattern when an ADR explicitly bans it AND other ADRs might
 # unknowingly use it (i.e., it's a tempting but wrong approach for this project).
 
-forbidden_patterns: []
+forbidden_patterns:
+  - pattern: cgo_large_model_inference
+    status: active
+    description: "Never use in-process CGo for LLM models exceeding 500M parameters. A 3B+ model crash must never take down the game. Use separate-process IPC instead. Tiny models (<500M, <400MB disk) may use CGo with recover() guard as a latency-critical fast-path."
+    why: "Process isolation prevents a model crash from killing the game. The IPC overhead (~1-5ms) is negligible compared to ~2s inference latency for large models."
+    adr: docs/architecture/adr-0008-llm-inference-integration.md
+    added: 2026-08-12
 
 # Example:
 #

@@ -17,7 +17,7 @@ All TR-ui-* via ADR-0012 (UI Framework) ✅
 | 002 | Chain List Sidebar & Thread Detail View | UI | Complete | ADR-0012 |
 | 003 | Fact Log & Entity Quick-Ref Bar | UI | Complete | ADR-0012 |
 | 004 | Contradiction Display & Revelation Prompts | Integration | Complete | ADR-0012, ADR-0010 |
-| 005 | Map Centering & Camera Integration | Integration | Ready | ADR-0012, ADR-0003 |
+| 005 | Map Centering & Camera Integration | Integration | Complete | ADR-0012, ADR-0003 |
 
 ## Next Step
 Run `/story-readiness production/epics/investigation-journal/story-001-journal-shell-layout.md`

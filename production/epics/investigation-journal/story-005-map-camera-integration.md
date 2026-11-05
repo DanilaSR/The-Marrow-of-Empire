@@ -1,7 +1,7 @@
 # Story 005: Map Centering & Camera Integration
 
 > **Epic**: Investigation Journal
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Integration
 > **Estimate**: 2-3 hours

@@ -1,0 +1,95 @@
+# Story 006: Save/Load Integration & Performance
+
+> **Epic**: Persistent World State
+> **Status**: Ready
+> **Layer**: Feature
+> **Type**: Integration
+> **Estimate**: M (4-6 hours)
+> **Manifest Version**: 2026-08-09
+> **Last Updated**: [set by /dev-story when implementation begins]
+
+## Context
+
+**GDD**: `design/gdd/persistent-world-state.md`
+**Requirement**: `TR-pws-007`, `TR-pws-008`
+*(Requirement text lives in `docs/architecture/tr-registry.yaml` — read fresh at review time)*
+
+**ADR Governing Implementation**: ADR-0001: Entity Architecture (primary — serialization), ADR-0013: Persistent World State (secondary — evolution re-evaluation)
+**ADR Decision Summary**: PWS state is serialized as a dedicated World State section in the save file. On load: restore all flags and memory logs, then re-evaluate world evolution rules for the elapsed game time. Version migration functions run before restore. Destroyed entity logs are preserved (IDs never reused). Performance: SubmitWorldEvent ≤0.5ms p95, GetWorldFlags ≤0.1ms p95.
+
+**Engine**: Kaiju Engine 26.07.29.1-nightly (Go/Vulkan) | **Risk**: HIGH
+**Engine Notes**: Save/Load integration via ADR-0002 pod serialization. World state section must be registered with the save system. Version migration requires coordination with the save versioning system. Performance benchmarks use Go's testing.B framework. Verify pod.Register API for world state types.
+
+**Control Manifest Rules (Feature Layer)**:
+- Required: Full-state pod serialization for save/load — ADR-0002
+- Required: Save versioning with registered migration functions per version transition — ADR-0002
+- Guardrail: Save (500 entities): <2 seconds — ADR-0002
+- Guardrail: Load (500 entities): <3 seconds — ADR-0002
+- Guardrail: SubmitWorldEvent ≤0.5ms p95 — PWS GDD
+- Guardrail: GetWorldFlags ≤0.1ms p95 — PWS GDD
+
+---
+
+## Acceptance Criteria
+
+*From GDD `design/gdd/persistent-world-state.md`:*
+
+- [ ] **AC-1**: GIVEN a game with 500 world flags and 2000 memory log entries across 100 entities, WHEN saved and loaded, THEN all flags and log entries are restored to pre-save values — GameEntityIDs, flag names, flag values, and memory log `event_id` fields all match within the save's tolerance.
+- [ ] **AC-2**: GIVEN a save from game version N loaded in version N+1, WHEN a world-state migration exists for N→N+1, THEN the migration runs before flags are restored and the loaded flags match the migrated schema. Unknown flags from version N are skipped with a log entry.
+- [ ] **AC-3**: GIVEN a game loaded after significant elapsed time (e.g., 30 game days since last save), WHEN the region is loaded, THEN world evolution rules are re-evaluated for the elapsed time and any triggered events are submitted.
+- [ ] **AC-4**: GIVEN a destroyed entity with preserved memory log entries, WHEN the save is loaded, THEN the destroyed entity's log entries are queryable by entity ID and the `world.[entity_id].destroyed_with_clues` flag is preserved.
+- [ ] **AC-5**: PERF: `SubmitWorldEvent` completes within 0.5ms p95 for an event with up to 5 flag mutations and a target entity with 50 existing memory log entries. `GetWorldFlags` completes within 0.1ms p95 per entity.
+
+---
+
+## Implementation Notes
+
+*Derived from ADR-0001, ADR-0002, ADR-0013:*
+
+- `WorldStateSection` struct for serialization: `Flags map[GameEntityID]map[string]interface{}`, `MemoryLogs map[GameEntityID][]MemoryEntry`, `DestroyedEntityLogs map[GameEntityID][]MemoryEntry`, `NextEventID uint64`.
+- Register with save system via `pod.Register(WorldStateSection{})` per ADR-0002.
+- On save: collect all `world.*` flags from all Persistent components, collect all memory logs (including destroyed entities), serialize as WorldStateSection.
+- On load: deserialize WorldStateSection, restore flags and memory logs to entities (re-create Persistent components for destroyed entities with their preserved logs), re-evaluate evolution rules for elapsed game time.
+- Elapsed time: `currentGameTime - saveGameTime`. For each loaded region, call `EvaluateRegion` (Story 005) with the elapsed time.
+- Version migration: `RegisterMigration(fromVersion, toVersion, func(*WorldStateSection) error)`. Called before restore. Migrations transform the WorldStateSection in place.
+- Destroyed entity log preservation: destroyed entities' Persistent components are not restored as live entities, but their memory logs and flags are stored in `DestroyedEntityLogs` and remain queryable by entity ID.
+- Performance benchmarks in `tests/bench/persistent_world_state/`. Use `testing.B` with realistic entity counts (100 entities, 50 log entries each). Measure SubmitWorldEvent p95 and GetWorldFlags p95.
+
+---
+
+## Out of Scope
+
+- **Story 001-005**: Individual PWS subsystems
+- Save system architecture (owned by ADR-0002)
+- Entity destruction/re-creation during load (owned by Entity Framework)
+- Investigation Journal display of loaded world state
+
+---
+
+## QA Test Cases
+
+> Generated by /qa-plan sprint-6 (2026-08-13).
+
+**Automated (integration + benchmarks) — `tests/integration/persistent_world_state/save_load_test.go`:**
+- **AC-1 round-trip**: 100 entities / 500 flags / 2000 log entries → flags (name/type/value) and entries (event_id, type, timestamp, actor, target, region, details, protected) restored
+- **AC-2 migration**: v1→v2 rename runs before restore; unknown flags skipped + logged; chained version jumps; migration panic → load error
+- **AC-3 evolution on load**: 490 elapsed days → rule fires, event submitted; zero/negative elapsed → no fire
+- **AC-4 destroyed-entity logs**: preserved and queryable; `destroyed_with_clues` persists
+- **AC-5 PERF** (Go `testing.B`): SubmitWorldEvent p95 ≤ 0.5ms; GetWorldFlags p95 ≤ 0.1ms
+- **Edge cases**: empty save; entity at 32-flag max; 50-entry cap boundary
+
+**Estimated test count**: ~14 tests + 2 benchmarks
+## Test Evidence
+
+**Story Type**: Integration
+**Required evidence**: `tests/integration/persistent_world_state/save_load_test.go` — must exist and pass
+**Status**: [ ] Not yet created
+
+---
+
+## Dependencies
+
+- Depends on: Story 001-005 (all PWS subsystems must be complete)
+- Depends on: Save/Load System epic (pod serialization, versioning, migration framework)
+- Depends on: Entity Framework epic (Persistent component serialization)
+- Unlocks: None (last story in epic)

@@ -1,0 +1,98 @@
+# Story 001: Dialogue Panel Framework & Lifecycle
+
+> **Epic**: Dialogue UI
+> **Status**: Ready
+> **Layer**: Presentation
+> **Type**: Integration
+> **Estimate**: 3h
+> **Manifest Version**: 2026-08-09
+> **Last Updated**: 2026-08-11
+
+## Context
+
+**GDD**: `design/gdd/dialogue-ui.md`
+**Requirement**: `TR-ui-001`, `TR-ui-004`, `TR-ui-007`
+*(Requirement text lives in `docs/architecture/tr-registry.yaml` — read fresh at review time)*
+
+**ADR Governing Implementation**: ADR-0012: UI Framework
+**ADR Decision Summary**: All UI rendered in screen space through Kaiju's HTML/CSS-like UI system. Three registers: Desk (parchment overlay, world dims 30%), Desk edge (dialogue panel — parchment, world stays live), Field (umber combat chrome), World (anchored bars/numbers). Paper-slide motion only: 200-300ms ease-out, no bounce/scale/spin/flip. Esc = end conversation in dialogue context.
+
+**Engine**: Kaiju Engine 26.07.29.1-nightly (Go/Vulkan) | **Risk**: HIGH
+**Engine Notes**: Kaiju HTML/CSS-like UI system — verify rendering API, font loading, input routing against `kaiju/src/`. Post-cutoff APIs, no LLM training data exists.
+
+**Control Manifest Rules (this layer)**:
+- Required: Kaiju HTML/CSS-like UI — all UI rendered in screen space; Desk serif (Garamond class) for dialogue; paper-slide motion 200-300ms ease-out; minimum 1280×720, reference 1920×1080 with height-based scaling; Esc mapping (end conversation in dialogue)
+- Forbidden: Never use 3D UI or diegetic HUD; never use skeuomorphic buttons (pen-and-ink icons only); never allow amber-on-parchment text (amber is accent/fill only); never encode game-critical information by hue alone
+- Guardrail: UI render (static) <1ms/frame; no frame drops during UI animations
+
+---
+
+## Acceptance Criteria
+
+*From GDD `design/gdd/dialogue-ui.md`, scoped to this story:*
+
+- [ ] **AC-1**: GIVEN the player initiates conversation with an NPC, WHEN the conversation starts, THEN the dialogue panel slides up from the bottom of the screen (300ms ease-out, parchment unfurl sound), occupying the lower third of the screen, with the game world remaining visible and live above it.
+- [ ] **AC-2**: GIVEN an active conversation, WHEN the player presses Esc or clicks the End Conversation button (X), THEN the dialogue panel slides down (200ms, parchment roll sound) and the game returns to exploration state.
+- [ ] **AC-3**: GIVEN the dialogue panel is displayed, THEN the top bar shows the NPC portrait + name and the End Conversation button (X), rendered in the Desk edge register (parchment, world stays live at full brightness).
+- [ ] **AC-4**: GIVEN the dialogue panel, THEN it transitions through states in order — Hidden → Active → Processing → Response — with input enabled only in Active and Response states.
+- [ ] **AC-5**: GIVEN the dialogue panel at reference resolution 1920×1080, THEN it scales correctly at 1280×720 (minimum) using height-based scaling, with body text no smaller than 12px effective.
+
+---
+
+## Implementation Notes
+
+*Derived from ADR-0012:*
+
+- **Desk edge register**: The dialogue panel uses the Desk edge register — parchment panel treatment, but the world stays live (not dimmed). This is distinct from the Desk register (which dims the world to 30%).
+- **Panel layout**: Bottom-third of screen, full width. Use Kaiju HTML/CSS-like layout — flex column: top bar (NPC portrait + name + X button), center (conversation log — filled by Story 003), bottom (input + chips — filled by Story 002).
+- **Motion**: Slide-up entrance via CSS transition on `transform` or `top` property, 300ms ease-out. Slide-down exit 200ms ease-out. No bounce, scale, spin, or flip. Trigger parchment unfurl/roll audio through the Audio System event bus.
+- **State machine**: Implement as a Go state machine driving CSS class changes on the panel container. States: `hidden` (display: none), `active` (input enabled), `processing` (input disabled, thinking visible), `response` (typewriter running, input re-enabled on completion).
+- **NPC portrait**: Load from entity data via the NPC's portrait asset path. Display as an `<img>` or Kaiju equivalent in the top bar. Use GameEntityID to look up the conversing NPC.
+- **Esc key**: Register a keydown handler. In dialogue context, Esc → end conversation. This must not conflict with Esc = pause (outside dialogue).
+- **Font**: Desk serif (Garamond class) for NPC name and all dialogue text. Fonts ship as OFL-licensed files — no runtime network fonts. Final font selection deferred to technical-artist.
+- **Input routing**: Tab order and arrow-key navigation must work. Focus ring: oxblood/umber, ≥3:1 contrast ratio.
+
+---
+
+## Out of Scope
+
+*Handled by neighbouring stories — do not implement here:*
+
+- Story 002: Text input field, topic suggestion chips, submit flow
+- Story 003: Conversation log (scrolling history), typewriter text reveal, thinking animation
+- Story 004: Trust level amber border glow, degraded mode indicator, trust increase pulse
+
+---
+
+## QA Test Cases
+
+> Generated by /qa-plan sprint-6 (2026-08-13). GDD dialogue-ui.md has no Formulas/Edge Cases sections — cases derived from ACs.
+
+**Automated (integration, headless) — `tests/integration/dialogue_ui/panel_framework_test.go`:**
+- **AC-4 state machine**: Hidden → Active → Processing → Response in order; input enabled only in Active/Response; typewriter completion re-enables input
+- **AC-2 input routing**: Esc or X click → panel hidden, exploration state
+- **AC-5 scaling logic**: height-based scale at 1280×720 yields ≥12px effective body text (assert scale math)
+- **Edge cases**: Esc during Processing ignored (input disabled); conversation start with panel already Active → no duplicate panel
+
+**Manual (visual ACs — not automatable):**
+- AC-1: panel slides up ~300ms ease-out, lower third, world undimmed and live above, unfurl sound
+- AC-2: ~200ms slide-down on Esc/X, roll sound, exploration controls restored
+- AC-3: top bar portrait + name + X; no amber-on-parchment body text
+- AC-5: at 1280×720 all elements visible, no clipping
+- Evidence: screenshots at 1920×1080 and 1280×720 to `production/qa/evidence/`; sign-off: ux-designer
+
+**Estimated test count**: ~10
+## Test Evidence
+
+**Story Type**: Integration
+**Required evidence**:
+- Integration: `tests/integration/dialogue_ui/panel_framework_test.go` OR playtest doc
+
+**Status**: [ ] Not yet created
+
+---
+
+## Dependencies
+
+- Depends on: None (first story in epic — can start immediately)
+- Unlocks: Story 002 (Text Input & Topic Chips), Story 003 (Conversation Log & Typewriter), Story 004 (Trust Indicator & Degraded Mode)

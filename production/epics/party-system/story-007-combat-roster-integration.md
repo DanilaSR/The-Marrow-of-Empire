@@ -1,0 +1,107 @@
+# Story 007: Combat Roster Integration
+
+> **Epic**: Party System
+> **Status**: Ready
+> **Layer**: Feature
+> **Type**: Integration
+> **Estimate**: S (2–4 hours)
+> **Manifest Version**: 2026-08-09
+> **Last Updated**: —
+
+## Context
+
+**GDD**: `design/gdd/party-system.md`
+**Requirement**:
+- `TR-party-001` — Party roster (max 6), recruitment via trust/dialogue, dismissal with confirmation, companion combat participation
+
+**ADR Governing Implementation (primary)**: ADR-0011: Event Bus Architecture — the Party System exposes a read-only roster interface; TCE consumes it. Read-only cross-system queries are permitted; mutations are not.
+**ADR (secondary)**: ADR-0009: Tactical Combat Engine — TCE reads the active party list for turn order, initiative, and ally AI; this story defines the Party side of that contract.
+**ADR Decision Summary**: "Companion combat participation" means the active roster is the single source of truth for who fights. TCE snapshots the roster at encounter start; roster changes mid-encounter are deferred to resolution — which is exactly what makes Story 006's deferred-departure rule ("the companion fights normally for the remainder of the encounter") hold.
+
+**Engine**: Kaiju Engine 26.07.29.1-nightly (Go/Vulkan) | **Risk**: HIGH
+**Engine Notes**: Boundary with the Tactical Combat Engine. No new Kaiju APIs — the contract is a Go interface. Verify the TCE epic's combat-initiation hook signature before implementing the snapshot call.
+
+**Control Manifest Rules (Feature Layer)**:
+- Required: Synchronous event dispatch via EventBus with system priority ordering (ADR-0011)
+- Forbidden: Never use direct cross-system calls for state mutations (ADR-0011)
+- Guardrail: Event dispatch (5 subscribers): <1µs; attack resolution <1ms (ADR-0009)
+
+---
+
+## Acceptance Criteria
+
+*From GDD `design/gdd/party-system.md` CR-1 (Combat participation), Interactions with Other Systems, scoped to this story:*
+
+- [ ] **AC-1** (recruit → combat roster): GIVEN a companion recruited into the active party, WHEN the next combat encounter starts, THEN the companion is present in the encounter's roster (AC-PS-01 combat part).
+
+- [ ] **AC-2** (swap-out → absent): GIVEN a companion swapped to the pool at a rest point, WHEN the next combat encounter starts, THEN the companion is absent from the encounter's roster (AC-PS-03a combat part).
+
+- [ ] **AC-3** (swap-in → present): GIVEN a companion swapped into the active party at a rest point, WHEN the next combat encounter starts, THEN the companion is present in the encounter's roster (AC-PS-03b combat part).
+
+- [ ] **AC-4** (roster snapshot stability): GIVEN a departure (or any roster change) triggers mid-encounter, THEN the current encounter's roster is unchanged for its remainder; changes apply from the next encounter (supports Story 006 AC-2).
+
+- [ ] **AC-5** (read-only contract): GIVEN TCE or any other system, THEN the only access to the active roster is through the Party System's read-only interface (`ActiveRoster()`); no consumer can mutate party state directly.
+
+- [ ] **Edge case — solo roster**: GIVEN a party of 1 (PC only), THEN the encounter roster contains exactly the player character and combat proceeds.
+
+---
+
+## Implementation Notes
+
+*Derived from GDD Interactions with Other Systems and ADR-0011/ADR-0009:*
+
+### Contract
+
+```go
+// ActiveRoster returns the active party in marching order (PC first).
+// Read-only — consumers never mutate party state.
+// Called by TCE at encounter initiation; cheap (slice snapshot, no allocation).
+func (p *PartySystem) ActiveRoster() []GameEntityID
+```
+
+- TCE reads `ActiveRoster()` + the `pc_controlled` tag (Story 001) to build the encounter's turn order and initiative list.
+- The snapshot is taken once at encounter start (AC-4). Mid-encounter roster events (`party.member_removed`, `party.departed`) are NOT applied to the live encounter — TCE and the Party System agree that roster changes apply from the next encounter. This is the mechanism behind Story 006's "fights normally for the remainder of the encounter".
+- Initial combat positions come from formation deployment (Story 011) — this story only guarantees *who* is in the roster, not *where* they stand.
+
+### Event Contract
+
+- On roster-affecting events during combat, Party emits its standard events (Story 001 types); TCE's subscriber simply ignores roster events while an encounter is active, or Party suppresses them for the live encounter via a flag the Party ADR may formalize. Keep the read-only interface as the single source of truth either way.
+
+---
+
+## Out of Scope
+
+*Handled by neighbouring stories — do not implement here:*
+
+- Story 011: Formation deployment positions at combat start (the "where")
+- Story 006: Departure deferral and post-combat removal presentation
+- Story 009: Companion AI behavior modes inside AllyTurn (the "how companions act")
+- Tactical Combat Engine epic: Turn order, initiative, and combat mechanics themselves
+
+---
+
+## QA Test Cases
+
+> Generated by /qa-plan sprint-6 (2026-08-13).
+
+**Automated (integration) — `tests/integration/party/combat_roster_test.go`:**
+- **AC-1/AC-2/AC-3**: recruit / swap-out / swap-in reflected in the *next* encounter roster
+- **AC-4**: mid-encounter roster change does not alter the live encounter snapshot
+- **AC-5**: roster exposed only via read-only `ActiveRoster()`; no mutation path
+- **Edge cases**: solo roster (PC only) → combat proceeds; PC first in order; pool members never in roster
+
+**Estimated test count**: ~9
+## Test Evidence
+
+**Story Type**: Integration
+**Required evidence**:
+- Integration: `tests/integration/party/combat_roster_test.go` — must exist and pass
+
+**Status**: [ ] Not yet created
+
+---
+
+## Dependencies
+
+- Depends on: Story 001 (roster storage), Tactical Combat Engine epic (complete)
+- Unlocks: None

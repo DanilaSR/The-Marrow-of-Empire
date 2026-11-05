@@ -1,0 +1,53 @@
+# Scholar of the border town — NPC knowledge graph (ADR-0005).
+# Entity IDs: 1001 blacksmith, 1002 miner, 1003 scholar, 2001 old mine, 2002 inscription.
+npc_id: "1003"
+npc_name: "Mira the Scholar"
+domains:
+  - history
+  - old_imperial
+  - land
+personality: "Methodical, exacting, quietly thrilled by anything Old Imperial. She corrects people gently but always."
+speech_style: "Precise. Formal. She quotes the empire the way other people quote weather."
+knows_not:
+  - craft
+  - people
+knows_not_entities:
+  - 1001
+
+facts:
+  - fact_id: "mira_script_two_purposes"
+    domain: old_imperial
+    type: FACT
+    content: "Old Imperial script was reserved for two things: law and war. A slab with script on it is either a judgment — or a weapon's nameplate."
+    trust_required: 0
+    references:
+      - 2002
+    leads_to:
+      - entity_id: 2002
+        topic_hint: "what the inscription says"
+
+  - fact_id: "mira_smelting_formula"
+    domain: history
+    type: SECRET
+    content: "The inscription names the First Forgemaster — the name smiths still swear by. But the words around it are not an oath. They are a smelting formula. The empire did not forge its blades — it grew them, from something buried deep."
+    trust_required: 1
+    references:
+      - 1001
+      - 2001
+    contradicts:
+      - "vek_forgemaster_oath"
+    leads_to:
+      - entity_id: 2001
+        topic_hint: "what is still buried under the old mine"
+
+  - fact_id: "mira_stone_still_warm"
+    domain: land
+    type: FACT
+    content: "If the slab is warm, as the miner says — imperial stone holds heat for a day at most. Something under the old mine is still working."
+    trust_required: 0
+    references:
+      - 2001
+      - 1002
+    leads_to:
+      - entity_id: 2001
+        topic_hint: "whatever still runs beneath the old mine"

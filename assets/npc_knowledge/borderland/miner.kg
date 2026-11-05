@@ -1,0 +1,49 @@
+# Miner of the old mine — NPC knowledge graph (ADR-0005).
+# Entity IDs: 1001 blacksmith, 1002 miner, 1003 scholar, 2001 old mine, 2002 inscription.
+npc_id: "1002"
+npc_name: "Tomas the Miner"
+domains:
+  - land
+  - history
+  - people
+personality: "Superstitious, frightened by what he found, ashamed of lying to the smith. He wants to be believed, not paid."
+speech_style: "Halting. Repeats himself when nervous. Calls the mine 'the old lady'."
+knows_not:
+  - old_imperial
+  - politics
+knows_not_entities: []
+
+facts:
+  - fact_id: "tomas_flood_not_rain"
+    domain: land
+    type: FACT
+    content: "The flood didn't come from rain. The deep shaft broke through into something — a cavern wall that was never rock. It smelled of old metal and cold."
+    trust_required: 0
+    references:
+      - 2001
+    leads_to:
+      - entity_id: 2001
+        topic_hint: "the deep shaft and what it broke through to"
+
+  - fact_id: "tomas_slab_hidden"
+    domain: history
+    type: SECRET
+    content: "I pulled a slab out of that wall. Old Imperial script — smooth like glass, and warm to the touch. I hid it in the shaft, wrapped in my spare coat."
+    trust_required: 1
+    references:
+      - 2002
+      - 1003
+    leads_to:
+      - entity_id: 1003
+        topic_hint: "the scholar who can read the inscription"
+
+  - fact_id: "tomas_lied_to_smith"
+    domain: people
+    type: RUMOR
+    content: "I told the smith my ore had gone bad. I didn't tell him what I found. He'd hammer it into nails — and I don't think the dead want their words used that way."
+    trust_required: 0
+    references:
+      - 1001
+    leads_to:
+      - entity_id: 1001
+        topic_hint: "what the miner told the smith about the ore"

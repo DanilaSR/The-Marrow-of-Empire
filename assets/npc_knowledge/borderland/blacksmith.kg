@@ -1,0 +1,49 @@
+# Blacksmith of the border town — NPC knowledge graph (ADR-0005).
+# Entity IDs: 1001 blacksmith, 1002 miner, 1003 scholar, 2001 old mine, 2002 inscription.
+npc_id: "1001"
+npc_name: "Vek the Smith"
+domains:
+  - craft
+  - people
+  - history
+personality: "Blunt, proud of his work, quick to complain about bad material. He trusts what his hammer tells him."
+speech_style: "Short sentences. Shop metaphors. Swears by his anvil."
+knows_not:
+  - old_imperial
+  - politics
+knows_not_entities:
+  - 2002
+
+facts:
+  - fact_id: "vek_ore_gone_wrong"
+    domain: craft
+    type: FACT
+    content: "The ore from the old mine has gone wrong. Brittle, cold — it folds instead of ringing. Steel's been strange since the deep shaft flooded."
+    trust_required: 0
+    references:
+      - 2001
+    leads_to:
+      - entity_id: 2001
+        topic_hint: "the flooded shaft at the old mine"
+
+  - fact_id: "vek_miner_gone_quiet"
+    domain: people
+    type: RUMOR
+    content: "The miner who works that shaft — most honest man I know — has gone quiet since the water rose. Won't sell me ore no more, and won't say why."
+    trust_required: 0
+    references:
+      - 1002
+    leads_to:
+      - entity_id: 1002
+        topic_hint: "why the miner stopped selling ore"
+
+  - fact_id: "vek_forgemaster_oath"
+    domain: history
+    type: OPINION
+    content: "The guild seal used to mean something. Smiths swore their oaths under one name — the First Forgemaster's. They say he could temper steel that never dulled."
+    trust_required: 0
+    references:
+      - 1003
+    leads_to:
+      - entity_id: 1003
+        topic_hint: "the First Forgemaster's name"

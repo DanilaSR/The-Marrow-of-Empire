@@ -1,0 +1,362 @@
+<!--
+  The Marrow of Empire — Title Screen
+  Kaiju Engine UI (HTML/CSS-like markup, no JS runtime).
+  Loaded via markup.DocumentFromHTMLAsset. Visibility, focus, and
+  transitions are driven from Go (bound by id).
+  All player-facing strings are placeholders pending localization.
+
+  Art bible palette:
+    Parchment #E3D5B0 | Ink #1C1813 | Panel umber #2E2820 | Soot #141210
+    Oxblood #7A2E28 | Thread red #C4483A | Amber #D9A441
+-->
+<style>
+  .root {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    background-color: #141210; /* soot */
+    font-family: "Georgia", serif; /* TODO: swap for baked desk serif (Garamond class, OFL) */
+  }
+
+  .scene-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+  }
+
+  .menu-panel {
+    position: relative;
+    left: 48px;
+    z-index: 1;
+    width: 480px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 48px 40px;
+    background-color: #E3D5B0; /* parchment */
+    border: 1px solid rgba(28, 24, 19, 0.25);
+    border-radius: 3px 5px 4px 6px;
+  }
+
+  .menu-title {
+    font-size: 56px;
+    font-weight: normal;
+    letter-spacing: 0.03em;
+    line-height: 1.15;
+    text-transform: uppercase; /* TODO: swap to pre-baked small-caps face */
+    color: #1C1813; /* ink */
+    text-align: center;
+  }
+
+  .title-rule {
+    width: fit-content;
+    height: 1px;
+    background-color: rgba(28, 24, 19, 0.25);
+    margin-bottom: 6px;
+  }
+
+  .menu-button {
+    width: fit-content;
+    height: 44px;
+    padding: 0 24px;
+    text-align: left;
+    font-size: 18px;
+    color: #1C1813; /* ink label on transparent face */
+    background-color: transparent;
+    border: none;
+  }
+
+  .menu-button:hover {
+    border-left: 2px solid #D9A441; /* amber left-edge, 2px */
+    padding-left: 22px; /* compensate so label does not shift */
+  }
+
+  .menu-button:active {
+    border-bottom: 2px solid #C4483A; /* thread-red underline */
+    padding-bottom: 0;
+  }
+
+  .menu-button-secondary {
+    /* Quit: same ink label, separated by hairline above */
+    color: #1C1813;
+  }
+
+  .menu-button-secondary:active {
+    border-bottom: 2px solid #7A2E28; /* oxblood destructive press */
+  }
+
+  .menu-button-disabled {
+    opacity: 0.40;
+  }
+
+  .focused {
+    outline: 2px solid #7A2E28; /* oxblood focus ring */
+    /* TODO(outline-offset): longhand not implemented in Kaiju CSS (errors at
+       apply). Offset must be applied Go-side via Panel.SetOutline(width,
+       offset, color) in the focus controller — no offset-only setter exists.
+       CSS outline processing preserves the panel's current offset. */
+  }
+
+  .separator-rule {
+    width: fit-content;
+    height: 1px;
+    background-color: rgba(28, 24, 19, 0.25);
+    margin: 6px 0;
+  }
+
+  .version-label {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    z-index: 1;
+    font-size: 13px;
+    letter-spacing: 1px;
+    color: rgba(227, 213, 176, 0.70); /* parchment 70% */
+  }
+
+  .modal-dim {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    display: none;
+    background-color: rgba(20, 18, 16, 0.72); /* soot, 72% */
+  }
+
+  .modal-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: auto;
+    z-index: 3;
+    display: none;
+    width: 520px;
+    padding: 40px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+    background-color: #E3D5B0; /* parchment */
+    border: 1px solid rgba(28, 24, 19, 0.25);
+    border-radius: 3px 5px 4px 6px;
+  }
+
+  .modal-header {
+    font-size: 24px;
+    font-weight: normal;
+    letter-spacing: 0.03em;
+    text-transform: uppercase; /* TODO: small-caps face */
+    color: #1C1813;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+
+  .modal-body {
+    font-size: 16px;
+    color: #1C1813;
+    text-align: center;
+  }
+
+  .form-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .form-label {
+    font-size: 16px;
+    color: #1C1813;
+  }
+
+  .select-field {
+    padding: 6px 8px;
+    font-size: 14px;
+    color: #1C1813;
+    background-color: #E3D5B0;
+    border: 1px solid rgba(28, 24, 19, 0.25);
+  }
+
+  .toggle-track {
+    width: 52px;
+    height: 26px;
+    padding: 2px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    background-color: #2E2820; /* panel umber */
+    border: 1px solid rgba(28, 24, 19, 0.25);
+  }
+
+  .toggle-knob {
+    width: 20px;
+    height: 20px;
+    background-color: #E3D5B0; /* parchment */
+    border: 1px solid rgba(28, 24, 19, 0.40);
+  }
+
+  .toast-chip {
+    position: absolute;
+    left: 0;
+    right: 0;
+    margin-left: auto;
+    margin-right: auto;
+    bottom: 24px;
+    z-index: 4;
+    display: none;
+    width: 320px;
+    padding: 16px;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    background-color: #E3D5B0; /* parchment */
+    border: 1px solid rgba(28, 24, 19, 0.25);
+  }
+
+  .toast-knot {
+    width: 20px;
+    height: 20px;
+    text-align: center;
+    line-height: 18px;
+    font-weight: bold;
+    font-size: 14px;
+    color: #7A2E28; /* oxblood */
+    background-color: rgba(122, 46, 40, 0.08);
+    border: 1px solid #7A2E28;
+  }
+
+  .toast-message {
+    font-size: 14px;
+    color: #1C1813;
+  }
+
+  .tooltip-chip {
+    position: absolute;
+    left: 34%;
+    top: 44%;
+    z-index: 5;
+    display: none;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: #1C1813;
+    background-color: #E3D5B0; /* parchment */
+    border: 1px solid rgba(28, 24, 19, 0.25);
+  }
+
+  /* Confirmation dialog — reuses dim overlay + own modal panel */
+  .confirm-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: auto;
+    z-index: 3;
+    display: none;
+    width: 520px;
+    padding: 40px;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    background-color: #E3D5B0; /* parchment */
+    border: 1px solid rgba(28, 24, 19, 0.25);
+    border-radius: 3px 5px 4px 6px;
+  }
+
+  .confirm-row {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    justify-content: center;
+  }
+</style>
+
+<Panel id="title-root" class="root">
+  <!-- Scene background: art asset bound from Go -->
+  <Image id="scene-background" class="scene-background"></Image>
+
+  <!-- Parchment menu panel -->
+  <Panel id="menu-panel" class="menu-panel">
+    <Label class="menu-title">THE MARROW</Label>
+    <Label class="menu-title">OF EMPIRE</Label>
+    <Panel class="title-rule"></Panel>
+
+    <Button id="btn-new-game" class="menu-button" onclick="clickNewGame">New Game</Button>
+    <Button id="btn-load-game" class="menu-button" onclick="clickLoadGame">Load Game</Button>
+    <Button id="btn-settings" class="menu-button" onclick="clickSettings">Settings</Button>
+
+    <Panel class="separator-rule"></Panel>
+
+    <Button id="btn-quit" class="menu-button menu-button-secondary" onclick="clickQuit">Quit to Desktop</Button>
+  </Panel>
+
+  <Label id="label-version" class="version-label">v0.1.0</Label>
+
+  <!-- Dim overlay (shared by all modals) -->
+  <Panel id="dim-overlay" class="modal-dim"></Panel>
+
+  <!-- Accessibility modal (first launch) -->
+  <Panel id="modal-accessibility" class="modal-panel">
+    <Label class="modal-header">Before You Begin</Label>
+
+    <Panel class="form-row">
+      <Label class="form-label">Reduce Camera Motion</Label>
+      <!-- The Kaiju select parser ignores `selected` on Option and only honors
+           `value` on the Select element itself — keep both for intent. -->
+      <Select id="select-camera-motion" class="select-field" value="Reduced">
+        <Option value="Off">Off</Option>
+        <Option value="Reduced" selected>Reduced</Option>
+        <Option value="Disabled">Disabled</Option>
+      </Select>
+    </Panel>
+
+    <Panel class="form-row">
+      <Label class="form-label">Subtitles</Label>
+      <Panel id="toggle-subtitles" class="toggle-track" onclick="clickToggleSubtitles">
+        <Panel class="toggle-knob"></Panel>
+      </Panel>
+    </Panel>
+
+    <!-- Checkbox widget state requires the input element form — a <Checkbox>
+         tag is not a Kaiju element and renders as a plain Panel. -->
+    <Panel class="form-row">
+      <Input id="checkbox-remember" type="checkbox" checked="checked"></Input>
+      <Label class="form-label">Remember my choice</Label>
+    </Panel>
+
+    <Button id="btn-start-game" class="menu-button" onclick="clickStartGame">Start Game</Button>
+  </Panel>
+
+  <!-- New Game confirmation dialog -->
+  <Panel id="modal-confirm" class="confirm-panel">
+    <Label class="modal-body">Starting a new game will not overwrite your existing saves.</Label>
+    <Panel class="confirm-row">
+      <Button id="btn-begin-new-game" class="menu-button" onclick="clickBeginNewGame">Begin New Game</Button>
+      <Button id="btn-cancel-confirm" class="menu-button menu-button-secondary" onclick="clickCancelConfirm">Cancel</Button>
+    </Panel>
+  </Panel>
+
+  <!-- Error toast -->
+  <Panel id="toast-error" class="toast-chip" onclick="clickDismissToast">
+    <Label class="toast-knot">&#x2715;</Label>
+    <Label id="label-toast-message" class="toast-message"></Label>
+  </Panel>
+
+  <!-- Tooltip -->
+  <Panel id="tooltip" class="tooltip-chip">
+    <Label>No saved games found</Label>
+  </Panel>
+</Panel>

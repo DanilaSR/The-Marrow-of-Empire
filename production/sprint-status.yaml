@@ -9,116 +9,26 @@
 #   done           ↔  Complete
 #   blocked        ↔  Blocked
 
-sprint: 5
-goal: "Ship CI/CD (resolved), begin Feature layer with Tactical Combat Engine, and import the Asset Pipeline — FBX normalization, material mapping, scene format, and KitBash3D pack integration."
-start: "2026-08-12"
-end: "2026-08-18"
-generated: "2026-08-12"
-updated: "2026-08-11"
+sprint: 6
+goal: "Close out the three in-flight stories (keybindings, dialogue panel, PWS-005), accept the Party ADR to unblock the Party epic, and land the party foundation (roster, state machine, combat roster) alongside the carried FBX import pipeline."
+start: "2026-08-13"
+end: "2026-08-19"
+generated: "2026-08-13"
+updated: "2026-08-13"
 
 stories:
-  - id: "CI-001"
-    name: "CI/CD Workflow Setup"
-    file: "production/epics/infrastructure/story-002-ci-workflow.md"
+  - id: "MMS-007"
+    name: "Keybindings Input Remapping (finish — carried in-flight)"
+    file: "production/epics/main-menu-settings/story-007-keybindings-input-remapping.md"
     priority: must-have
     status: done
-    owner: "devops-engineer"
-    estimate_days: 0.3
-    blocker: ""
-    completed: "2026-08-12"
-
-  - id: "COMBAT-001"
-    name: "Combat State Machine & Initiative"
-    file: "production/epics/tactical-combat-engine/story-001-combat-state-machine-initiative.md"
-    priority: must-have
-    status: done
-    owner: "gameplay-programmer"
+    owner: "ui-programmer"
     estimate_days: 0.5
     blocker: ""
-    completed: "2026-08-11"
-
-  - id: "COMBAT-002"
-    name: "Grid Movement & AP Economy"
-    file: "production/epics/tactical-combat-engine/story-002-grid-movement-ap-economy.md"
-    priority: must-have
-    status: done
-    owner: "gameplay-programmer"
-    estimate_days: 0.4
-    blocker: ""
-    completed: "2026-08-11"
-
-  - id: "COMBAT-003"
-    name: "Attack Resolution (d20)"
-    file: "production/epics/tactical-combat-engine/story-003-attack-resolution-d20.md"
-    priority: should-have
-    status: done
-    owner: "gameplay-programmer"
-    estimate_days: 0.4
-    blocker: ""
-    completed: "2026-08-11"
-
-  - id: "COMBAT-004"
-    name: "Positioning & Cover"
-    file: "production/epics/tactical-combat-engine/story-004-positioning-cover-system.md"
-    priority: should-have
-    status: done
-    owner: "gameplay-programmer"
-    estimate_days: 0.3
-    blocker: ""
-    completed: "2026-08-11"
-
-  - id: "COMBAT-005"
-    name: "Death, Dying & Stabilization"
-    file: "production/epics/tactical-combat-engine/story-005-death-dying-stabilization.md"
-    priority: nice-to-have
-    status: done
-    owner: "gameplay-programmer"
-    estimate_days: 0.3
-    blocker: ""
-    completed: "2026-08-11"
-
-  - id: "ASSET-001"
-    name: "FBX Import & Normalization"
-    file: "production/epics/asset-scene-pipeline/story-001-fbx-import-normalization.md"
-    priority: should-have
-    status: backlog
-    owner: ""
-    estimate_days: 1.0
-    blocker: ""
-    completed: ""
-
-  - id: "ASSET-002"
-    name: "Material Mapping & Validation"
-    file: "production/epics/asset-scene-pipeline/story-002-material-mapping-validation.md"
-    priority: should-have
-    status: backlog
-    owner: ""
-    estimate_days: 0.8
-    blocker: "ASSET-001"
-    completed: ""
-
-  - id: "ASSET-003"
-    name: "Scene Format & Entity Placement"
-    file: "production/epics/asset-scene-pipeline/story-003-scene-format-placement.md"
-    priority: should-have
-    status: backlog
-    owner: ""
-    estimate_days: 0.8
-    blocker: "ASSET-001"
-    completed: ""
-
-  - id: "ASSET-004"
-    name: "Two-Pack Integration Rules"
-    file: "production/epics/asset-scene-pipeline/story-004-pack-mixing-rules.md"
-    priority: should-have
-    status: backlog
-    owner: ""
-    estimate_days: 0.4
-    blocker: "ASSET-001, ASSET-002"
-    completed: ""
+    completed: "2026-08-13"
 
   - id: "DIALOGUE-UI-001"
-    name: "Dialogue Panel Framework & Lifecycle"
+    name: "Dialogue Panel Framework (finish — carried in-progress)"
     file: "production/epics/dialogue-ui/story-001-dialogue-panel-framework.md"
     priority: must-have
     status: in-progress
@@ -127,22 +37,132 @@ stories:
     blocker: ""
     completed: ""
 
-  - id: "AI-DIALOGUE-004"
-    name: "State Machine, Degradation & Conversation Memory"
-    file: "production/epics/ai-dialogue-engine/story-004-state-machine-degradation-memory.md"
+  - id: "PWS-005"
+    name: "World Evolution Rules"
+    file: "production/epics/persistent-world-state/story-005-world-evolution-rules.md"
     priority: must-have
-    status: done
-    owner: "ai-programmer"
-    estimate_days: 1.0
+    status: ready-for-dev
+    owner: ""
+    estimate_days: 0.5
     blocker: ""
-    completed: "2026-08-11"
+    completed: ""
 
-  - id: "AI-DIALOGUE-005"
-    name: "Tiered Routing & Tiny Model CGo Backend"
-    file: "production/epics/ai-dialogue-engine/story-005-tiered-routing-tiny-cgo.md"
+  - id: "PARTY-001"
+    name: "Party Roster & Active Slots"
+    file: "production/epics/party-system/story-001-party-roster-active-slots.md"
     priority: must-have
     status: done
-    owner: "ai-programmer"
+    owner: "gameplay-programmer"
+    estimate_days: 0.3
+    blocker: ""
+    completed: "2026-08-13"
+
+  - id: "ASSET-001"
+    name: "FBX Import & Normalization (carryover from sprint-5)"
+    file: "production/epics/asset-scene-pipeline/story-001-fbx-import-normalization.md"
+    priority: should-have
+    status: backlog
+    owner: ""
     estimate_days: 1.0
     blocker: ""
-    completed: "2026-08-11"
+    completed: ""
+
+  - id: "PARTY-002"
+    name: "Companion State Machine"
+    file: "production/epics/party-system/story-002-companion-state-machine.md"
+    priority: should-have
+    status: blocked
+    owner: ""
+    estimate_days: 0.5
+    blocker: "ADR-0016 acceptance (PRC-001) + PARTY-001"
+    completed: ""
+
+  - id: "PARTY-007"
+    name: "Combat Roster Integration"
+    file: "production/epics/party-system/story-007-combat-roster-integration.md"
+    priority: should-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.3
+    blocker: ""
+    completed: ""
+
+  - id: "INT-5"
+    name: "Game-Layer Wiring — Title, Settings & Keybindings Live"
+    file: "production/epics/main-menu-settings/story-008-game-layer-wiring.md"
+    priority: must-have
+    status: in-progress
+    owner: ""
+    estimate_days: 1.0
+    blocker: ""
+    completed: ""
+
+  - id: "INT-6"
+    name: "Game-Layer Wiring — Save/Load Live"
+    file: "production/epics/save-load-system/story-004-game-layer-wiring.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.5
+    blocker: ""
+    completed: ""
+
+  - id: "INT-7"
+    name: "Game-Layer Wiring — Party Live"
+    file: "production/epics/party-system/story-015-game-layer-wiring.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.6
+    blocker: "PARTY-001, INT-6"
+    completed: ""
+
+  - id: "INT-8"
+    name: "Game-Layer Wiring — PWS Live"
+    file: "production/epics/persistent-world-state/story-007-game-layer-wiring.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.5
+    blocker: "INT-6"
+    completed: ""
+
+  - id: "PWS-006"
+    name: "Save/Load Performance"
+    file: "production/epics/persistent-world-state/story-006-save-load-performance.md"
+    priority: nice-to-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.5
+    blocker: ""
+    completed: ""
+
+  - id: "AUDIO-002"
+    name: "Ambient Soundscapes (Integration Pass unit 10)"
+    file: "production/epics/audio-system/story-002-ambient-soundscapes.md"
+    priority: should-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: ""
+    completed: ""
+
+  - id: "COMBAT-006"
+    name: "Combat Resolution Integration (Integration Pass unit 9)"
+    file: "production/epics/tactical-combat-engine/story-006-combat-resolution-integration.md"
+    priority: should-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.5
+    blocker: ""
+    completed: ""
+
+  - id: "PARTY-003"
+    name: "Recruitment via Trust & Dialogue"
+    file: "production/epics/party-system/story-003-recruitment-via-trust-dialogue.md"
+    priority: nice-to-have
+    status: blocked
+    owner: ""
+    estimate_days: 0.6
+    blocker: "PARTY-002 (story 002 Blocked on ADR-0016)"
+    completed: ""

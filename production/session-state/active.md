@@ -1,6 +1,188 @@
 # Session State
 
-*Updated: 2026-08-11*
+
+## Session Extract — /sprint-plan new (Sprint 6) 2026-08-13
+- Verdict: COMPLETE — sprint-6.md + sprint-status.yaml written (user approved both; review mode lean)
+- Sprint 6: 2026-08-13 → 08-19. Goal: close in-flight stories + Party System foundation + carried FBX pipeline
+- Must: MMS-007 keybindings finish (tests confirmed failing — click routing), DIALOGUE-UI-001 finish (panel exists from INT-2), PWS-005 world evolution rules, PARTY-001 roster, PRC-001 (accept ADR-0016 + amend ADR-0008/0009 → unblocks party 002/006/008/009)
+- Should: ASSET-001 FBX (carryover), PARTY-002 state machine (blocked on ADR), PARTY-007 combat roster, VS-REPORT (human playtest)
+- Nice: PWS-006, AUDIO-002, COMBAT-006, PARTY-003
+- Carried statuses preserved in yaml: MMS-007 in-progress, DIALOGUE-UI-001 in-progress, PARTY-002/003 blocked
+- QA plan: NONE for sprint-6 — user chose to run /qa-plan sprint before implementation
+- Next: /qa-plan sprint → then MMS-007 finish (fix click routing) or PARTY-001 via /dev-story
+- Facts: no production/milestones/ dir; no risk-register dir; backlog = 68 Complete / 36 Ready / 9 Blocked stories
+*Updated: 2026-08-13*
+
+## Session Extract — INT-4 Complete 2026-08-13 (Vertical Slice — code done, playtest pending)
+- INT-4: UI rendering recipe found + applied, journal view, revelation proven, debug cleanup
+- **THE UI RECIPE (applies to all production UI)**: markup + `position: absolute` + PX top/left/width/height + z-index; show/hide via entity `Activate()/Deactivate()` (console pattern — CSS display toggles DON'T re-apply layout); NO runtime UI tree mutations (static label pools — anyChildDirty panic); markup labels need zero-width-space content + `InnerLabel()` binding
+- Files: dialogue_ui/panel.go (px markup + static 8-label pool), dialogue_ui/messages.go (pool rebuild), src/game/journal_view.go (NEW — slice journal, 14-label pool, J/tab toggle), src/game/{world,talk,game}.go (debug aids REMOVED: F1-F4, telemetry, cycle mode, debug_ui.go deleted), tests/unit/game/revelation_chain_test.go (2 tests — chain reaches revelation_ready after Vek→Tomas→Mira; contradiction flags facts)
+- Live-verified: dialogue panel renders (233k parchment px bottom third), in-character responses, zero panics. Full 3-conversation live walkthrough blocked by OS focus flakiness — chain logic proven headlessly instead
+- Findings for production: TryPlaneHit = camera-origin rays (custom world→screen projection math does NOT match it); ResolveAttack returns, callers apply damage; entity.Stats vs stats.StatsComponent duplication
+- Tests: all INT suites PASS (game, dialogue_ui, ai_dialogue)
+- **REMAINING (slice end)**: playtest Session 1 (human), then REPORT.md + prototypes/index.md verdict — vertical-slice skill Phases 6-8
+- Build facts: standalone = cd kaiju/src && CGO_ENABLED=1 go build -tags="debug,ai_driver" -o ../../bin/game-standalone . ; run from PROJECT ROOT with LLAMA_SERVER_BIN env
+*Updated: 2026-08-13*
+
+## Session Extract — INT-2 Talk Loop Complete 2026-08-12 (Vertical Slice)
+- Story: INT-2 (vertical slice integration) — Talk loop: 3 NPCs with .kg content, dialogue pipeline, LLM companion, thread wiring
+- Files: assets/npc_knowledge/borderland/{blacksmith,miner,scholar}.kg (first game content), src/ai_dialogue/companion_codec.go + companion/main.go (stdin JSON ↔ llama-server), src/dialogue_ui/panel.go (REWRITTEN to markup) + messages.go (log/input/typewriter), src/game/talk.go (orchestration), world.go/world_config.go/game.go edits, tests: companion codec (11), PickNPC (5), WrapLines (5), .kg content validation (2)
+- LIVE VERIFIED: standalone + ai_driver — dialogue opens on NPC click (PickNPC), F2 test question runs the full pipeline: MatchTopics → KG facts → BuildPrompt → StateMachine.Submit (text-mode fallback) → ProcessResponse → attributed in-character response ("I told the smith my ore had gone bad..." — Tomas). Evidence: production/qa/evidence/int2/
+- FINDINGS (slice report material):
+  1. **LLM too slow on dev machine**: capability probe gated — 1.2-1.4 tok/s vs 10 tok/s minimum → text mode. Real-model path WORKS (companion e2e test) but ~1 tok/s = ~70s per response. Performance constraint for real-time dialogue on this hardware.
+  2. **Panel markup rendering bug**: dialogue panel (markup, absolute-positioned div) renders top-left at ~half size; backgrounds don't fill. Title screen (flow layout) + engine console (top:0 pattern) work. Diagnosis: absolute px/percent positioning in markup misrenders in this engine version. Deferred to targeted fix story; pipeline verified headlessly via logs.
+  3. **Pick radius**: click ray ground-hit lands ~1.7u beyond NPC base (pitch through cube) — worldNPCClickRadius 1.5 → 3.0.
+  4. **Matcher threshold**: 8-9 keywords/domain + 0.3 threshold = single-topic questions never match. Tuned slice to 0.1 (GDD range 0.1-0.6).
+  5. Dialogue panel portrait never Init'd → engine panic (fixed: Init with square placeholder; also markup labels need InnerLabel() not ToLabel()).
+  6. Dual ui.Manager: elements under a second manager don't render — panel uses game's shared manager (character_sheet pattern).
+- Debug aids in updateWorld (remove for INT-4): F1 teleport to miner, F2 test question, per-second player/NPC screen-position logs
+- Build facts: standalone run = CWD project root, LLAMA_SERVER_BIN env for companion; hooks fixed: settings.json hook commands anchored to $CLAUDE_PROJECT_DIR/.claude/hooks/ (cwd drift broke them)
+- Next: INT-3 (COMBAT-003 attack resolution + mine encounter), then INT-4 (journal/revelation wiring + panel rendering fix + debug cleanup)
+*Updated: 2026-08-12*
+
+## Session Extract — /create-stories party-system 2026-08-12
+- Verdict: COMPLETE — 14 stories written to production/epics/party-system/ (5 Ready, 9 Blocked)
+- Review mode: lean — QL-STORY-READY gate skipped; QA plan check: no matching specs in production/qa/qa-plan-*.md
+- Stories: 001 Roster (Logic, Ready), 002 State Machine (Logic, Blocked), 003 Recruitment (Integration, Ready), 004 Swap/Dismissal (Integration, Ready), 005 Re-recruitment (Logic, Ready), 006 Departure/Death (Integration, Blocked), 007 Combat Roster (Integration, Ready), 008 Behavior Modes Exploration (Logic, Blocked), 009 Combat Mode Translation (Integration, Blocked), 010 Scout (Logic, Blocked), 011 Formation (Logic, Blocked), 012 Knowledge Contribution (Integration, Blocked), 013 Rest-Point Gating (Logic, Blocked), 014 Management Screen (UI, Blocked)
+- BLOCKERS (user-approved write-with-GAP-flags): TR-party-002..007 carry registry GAP "needs Party ADR"; 006/012 additionally need ADR-0008 revision (interjection interface); 008/009 need Party ADR or ADR-0009 extension. Unblock path: /architecture-decision → Party ADR, then flip stories to Ready
+- User decision: write all 14 with GAPs flagged Blocked (not pause-for-ADR, not ready-only)
+- Files: production/epics/party-system/story-001..014 (+EPIC.md stories table + requirements table updated; production/epics/index.md → "14 stories")
+- Note: CR-5 split into two stories (008 exploration / 009 combat) per story sizing rule — 13 → 14 after presentation
+- Next: /architecture-decision (Party ADR) to unblock 9 stories, or /story-readiness production/epics/party-system/story-001-party-roster-active-slots.md → /dev-story (001 is startable now)
+- Other epics without stories: faction-system only. Sprint planning (/sprint-plan) viable once faction stories exist or party unblocks.
+*Updated: 2026-08-12*
+
+## Session Extract — INT-1 Game World Bootstrap Complete 2026-08-12 (Vertical Slice)
+- Story: INT-1 (vertical slice integration) — Game World Bootstrap: New Game → debug-shape world, click-to-move, camera follow
+- Files: src/game/world.go (world build, MoveToward, updateWorld), src/game/world_config.go (layout/tuning constants), src/game/game.go (+startNewGame, resize hook, world fields), src/game/title_screen.go (btn-new wired), tests/unit/game/world_movement_test.go (7 tests PASS)
+- Verified APIs (against kaiju source): host.Cameras.Primary.ChangeCamera, StandardCamera.TryPlaneHit (ground picking), host.Window.Mouse (hid), NewMeshPlane/NewMeshCube + shader_data_registry basic color, Document.Destroy
+- Verified LIVE via ai_driver: standalone build (debug,ai_driver — NOT editor tags; editor build shows the editor, not the game), run from PROJECT ROOT (`./bin/game-standalone`); title renders (4 buttons), New Game click → world renders, click-to-move works both directions (world shifts, camera follows player), no panics
+- Evidence: production/qa/evidence/screenshots/int1-world-render.png + int1-player-moved.png
+- Next: INT-2 (Talk loop — 3 NPCs with .kg content, dialogue UI wiring) then INT-3 (COMBAT-003 attack resolution + mine encounter), INT-4 (journal/revelation wiring)
+- Key build facts: `make build-ai-driver` = editor+game (shows editor); standalone = `cd kaiju/src && CGO_ENABLED=1 go build -tags="debug,ai_driver" -o ../../bin/game-standalone .`, run with CWD=project root
+*Updated: 2026-08-12*
+
+## Session Extract — Investigation Journal Epic Complete 2026-08-12
+- Epic: Investigation Journal — 5/5 Complete ✅ (001 Shell, 002 Chains/Threads, 003 Fact Log/Entities, 004 Contradictions/Revelations, 005 Map/Camera)
+- Package: src/investigation_journal/ (9 files, ~1200 lines), 73 tests all PASS, go build + go vet clean
+- Pending: manual walkthrough evidence, in-engine rendering, commit
+*Updated: 2026-08-12*
+
+## Session Extract — /architecture-review 2026-08-12
+- Verdict: CONCERNS
+- Requirements: ~267 total — ~128 covered (48%), ~61 partial (23%), ~78 gaps (29%)
+- New TR-IDs registered: ~180 (TR registry v1 → v2)
+- GDD revision flags: save-load-system.md (camera persistence conflict)
+- Top ADR gaps: Audio System (8 TRs, no ADR), Loot & Economy (8 TRs, no ADR), AI Dialogue Engine revision (14 new TRs need ADR-0008 update), Map System (7 TRs, no ADR), Party System (6 TRs, no ADR)
+- Report: docs/architecture/architecture-review-2026-08-12.md
+- Blocking: Camera persistence conflict (Save/Load vs Camera GDD)
+
+## Session Extract — /dev-story INVJ-003 2026-08-12
+- Story: production/epics/investigation-journal/story-003-fact-log-entity-quickref.md — Fact Log & Entity Quick-Ref Bar
+- Implemented directly (Story 003 — in progress, not yet /code-review or /story-done)
+- Files created: src/investigation_journal/fact_log.go, src/investigation_journal/entity_chips.go, tests/integration/investigation_journal/fact_log_test.go
+- Files modified: src/investigation_journal/state.go (+StateEntitySelected), src/investigation_journal/journal.go (+tabs, fact log, entity chips, quick-ref, nav stack)
+- Test results: 58 total (20+25+13), all PASS, go build + go vet clean
+- Status: Implementation complete, awaiting /code-review and /story-done
+- Next: /code-review src/investigation_journal/ then /story-done production/epics/investigation-journal/story-003-fact-log-entity-quickref.md
+
+## Session Extract — /story-done map-system 002 2026-08-11
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/map-system/story-002-map-markers-pins.md — Map Markers & Pins
+- Tech debt logged: None (advisory: H2 star stacking, H3 renderer coverage, provider-contract QA edges)
+- Code review: APPROVED WITH SUGGESTIONS — all required fixes applied
+- Test suite: 19 integration + 25 unit = 44 tests, all PASS, go build + go vet clean
+- Map System epic: 2/3 Complete ✅
+- Next recommended: MAP-003 (World Map & Region Travel) or remaining open epics
+
+## Session Extract — /dev-story PWS 001 2026-08-12
+- Story: production/epics/persistent-world-state/story-001-world-flag-store-query-api.md — World Flag Store & Query API
+- Agent: gameplay-programmer (this session)
+- Files created: src/persistent_world_state/flag_store.go (443 lines), tests/unit/persistent_world_state/flag_store_test.go (540 lines)
+- Design decisions: (1) PersistentAccessor interface injection (not bare constructor) — needed for Persistent component existence check; (2) Added SetEntityRegion + ClearWorldFlag — region scoping and flag deletion gaps found during implementation; (3) Soft limit for max_flags_per_entity (warn + write, per EF pattern); (4) Storage delegates to entity.Persistent.StateFlags — preserves non-world.* namespaces
+- Test results: 18/18 PASS, go build + go vet clean
+- Blockers: None
+- Next: /code-review src/persistent_world_state/flag_store.go then /story-done production/epics/persistent-world-state/story-001-world-flag-store-query-api.md
+
+## Session Extract — /story-done map-system 003 2026-08-12
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/map-system/story-003-world-map-region-travel.md — World Map & Region Travel
+- Tech debt logged: None (advisory: zoom navigation untested, click routing untested, hazard routes not implemented)
+- Code review: APPROVED WITH SUGGESTIONS — S3 debounce test fix applied
+- Test suite: 23 world map + 19 markers + 25 unit = 67 tests, all PASS, go build + go vet clean
+- Map System epic: 3/3 Complete ✅
+- Next recommended: Create stories for remaining epics (PWS, party-system, faction-system) or continue Investigation Journal epic
+
+## Session Extract — /dev-story map-system 003 2026-08-12
+- Story: production/epics/map-system/story-003-world-map-region-travel.md — World Map & Region Travel
+- Agent: ui-programmer (2 passes — research then implementation)
+- Files created: src/ui/map/world_map.go (1678 lines), tests/integration/map_system/world_map_test.go (23 tests)
+- Files modified: src/ui/map/local_map.go (+WorldMap integration, world button), src/ui/map/render.go (+world button geometry), assets/ui/map.html (+world map overlay markup)
+- Design decisions: (1) WorldMap follows LocalMap pattern — headless-testable, provider interfaces, paper-slide; (2) Region shapes via boundary LineSegments with state-based ink treatments (dashed/faint/solid); (3) Travel routes as dotted ink lines between region centers; (4) Faction territory as colored wash with hatch patterns (never hue alone); (5) Detail panel paper-slides from right side; (6) Navigation: World button on local map → zoom out, click region on world → zoom in
+- Test results: 23 world map tests + 19 marker tests + 25 unit = 67 total, all PASS, go build + go vet clean
+- Bugs found and fixed during implementation: (1) faction snapshot leak — empty entries created for regions without factions; (2) PointInRegion boundary exclusion — strict > instead of >=; (3) hatch segment floating-point escape from clip rect
+- Not verified: in-engine rendering (manual QA evidence pending)
+- Blockers: None
+- Map System epic: 3/3 Complete ✅
+- Next: /code-review src/ui/map/world_map.go then /story-done production/epics/map-system/story-003-world-map-region-travel.md
+
+## Session Extract — /dev-story map-system 002 2026-08-11
+- Story: production/epics/map-system/story-002-map-markers-pins.md — Map Markers & Pins
+- Agent: ui-programmer (this session)
+- Files created: src/ui/map/markers.go, tests/integration/map_system/map_markers_test.go
+- Files modified: src/ui/map/local_map.go (+RegionID, +3 provider setters, +RefreshMarkers, +Markers, +snapshot), src/ui/map/render.go (+4 marker templates, +rebuildMarkers, +marker geometry), assets/ui/map.html (+4 marker templates + CSS)
+- Design decisions: (1) RegionID on RegionMapData as provider query key — no silent Name fallback; (2) Setters for providers (not constructor args) — backward-compatible with Story 001; (3) Marker snapshot model — defensive copy at query time, RefreshMarkers is the only push path; (4) Amber star = 5-spoke shape (not just * glyph) — shape-distinct from dot for colorblind accessibility; (5) Ink X = two crossed arms at ±45° overlaying the location pin
+- Test results: 17 integration tests PASS, 25 unit tests PASS (no regressions), go build + go vet clean
+- Not verified: in-engine rendering (manual QA evidence pending)
+- Blockers: None
+- Next: /code-review src/ui/map/markers.go src/ui/map/render.go src/ui/map/local_map.go then /story-done production/epics/map-system/story-002-map-markers-pins.md
+
+## Session Extract — /dev-story INVJ-002 2026-08-11
+- Story: production/epics/investigation-journal/story-002-chain-list-thread-detail.md — Chain List Sidebar & Thread Detail View
+- Implemented directly (ui-programmer agent pattern avoided after Story 001 research-loop)
+- Files created: src/investigation_journal/chain_list.go, src/investigation_journal/thread_detail.go, tests/integration/investigation_journal/chain_thread_display_test.go
+- Files modified: src/investigation_journal/state.go (+StateChainSelected), src/investigation_journal/journal.go (+LoadData, SelectChain, DeselectChain, sidebar/detail population)
+- Test results: 45 total (20 story 001 + 25 new), all PASS, go build + go vet clean
+- Design decisions: (1) Pure-Go display functions (BuildChainList, BuildThreadList, FormatThreadAge, ThreadStatusIcon/Label) for engine-free testing; (2) ChainSelected as flat enum state; (3) clearPanel is a VERIFY stub — children accumulate until Kaiju panel-clear API verified; (4) SourceNPC resolved as 0 placeholder — entity name lookup needs cross-system integration
+- Blockers: None
+- Next: /code-review src/investigation_journal/ then /story-done production/epics/investigation-journal/story-002-chain-list-thread-detail.md
+
+## Session Extract — /story-done INVJ-001 2026-08-11
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/investigation-journal/story-001-journal-shell-layout.md — Journal Shell & Three-Panel Layout
+- Tech debt logged: None (advisory: hardcoded layout constants, J key un-gated, AC-4 camera wiring deferred to Story 005)
+- Code review: APPROVED WITH SUGGESTIONS — 4 fixes applied (animation interrupt, real test calls, sidebar slide-in, AC-4 deferral)
+- Test suite: 20 tests, all PASS, go build + go vet clean
+- Next recommended: INVJ-002 (Chain List & Thread Detail) — now unblocked
+
+## Session Extract — /story-done map-system 001 2026-08-11
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/map-system/story-001-local-map-display.md — Local Map Display & Navigation
+- Tech debt logged: None
+- Test suite: 25 tests, all PASS, go build + go vet clean
+- Code review: APPROVED WITH SUGGESTIONS — all fixes applied
+- Advisory: manual walkthrough evidence pending (production/qa/evidence/)
+- Next recommended: MAP-002 (Map Markers & Pins) — now unblocked
+
+## Session Extract — /dev-story INVJ-001 2026-08-11
+- Story: production/epics/investigation-journal/story-001-journal-shell-layout.md — Journal Shell & Three-Panel Layout
+- Agent: ui-programmer (3 attempts, ~300k tokens — stuck in research loop; implemented directly)
+- Files created: src/investigation_journal/state.go, src/investigation_journal/events.go, src/investigation_journal/journal.go, assets/ui/investigation_journal.html, tests/integration/investigation_journal/journal_shell_test.go
+- Test results: 17/17 PASS, go build + go vet clean
+- Design decisions: (1) Programmatic UI (dialogue_ui pattern) — HTML file retained as design reference for Story 002+; (2) EventBus as interface type, not pointer-to-interface; (3) UIUpdater for pre-render animation pass; (4) Esc only closes when Open — falls through to pause when Closed
+- Not verified: in-engine rendering (screenshot evidence pending — Kaiju UI API compatibility verified against dialogue_ui pattern but runtime testing needed)
+- Blockers: None
+- Next: /code-review src/investigation_journal/ then /story-done production/epics/investigation-journal/story-001-journal-shell-layout.md
+
+## Session Extract — /dev-story map-system 001 2026-08-11
+- Story: production/epics/map-system/story-001-local-map-display.md — Local Map Display & Navigation
+- Agent: ui-programmer (this session)
+- Files created: src/ui/map/local_map.go, src/ui/map/render.go, src/ui/map/tween.go, assets/ui/map.html, tests/unit/map_system/local_map_display_test.go
+- Design decisions: (1) Package `local_map` since `map` is a Go keyword (same convention as `combat_hud`); (2) Engine-free models + renderer pattern following combat_hud; (3) Paper-slide cubic-bezier tween Go-driven per frame (Kaiju CSS has no transitions); (4) Region geography as line segments with inline CSS rotate; (5) PositionProvider interface for player position (game layer implements)
+- Test results: 16 unit tests PASS, go build + go vet clean
+- Not verified: in-engine rendering (manual QA evidence pending — needs running game for M/Esc hotkeys, drag, edge-scroll, visual verification)
+- Blockers: None
+- Next: /code-review src/ui/map/ then /story-done production/epics/map-system/story-001-local-map-display.md
 
 ## Session Extract — /story-done AI-DIALOGUE-005 2026-08-11
 - Verdict: COMPLETE WITH NOTES
@@ -289,6 +471,38 @@ Task: SAVE-001 complete; SAVE-002 next
 Task: QA plan written, ready for implementation
 <!-- /STATUS -->
 
+## Session Extract — /gate-check Production → Polish 2026-08-12
+- Verdict: FAIL (unanimous NOT READY — all 4 directors)
+- 15 blockers consolidated across specification, technical, production, visual domains
+- 5/11 required artifacts present, 2/10 quality checks passing
+- Critical gaps: 0 playtests, no runnable client, ADE GDD unapproved, CI never green, no milestone defined
+- Report: production/gate-checks/gate-check-production-polish-2026-08-12.md
+
+## Session Extract — Playtest Planning 2026-08-12
+- Playtest plan created: production/playtests/playtest-plan-2026-08-12.md
+- Session report template: production/playtests/session-report-template.md
+- 3 sessions planned: New Player Experience, Mid-Game Systems, Difficulty & Depth
+- Screenshot baseline requirements defined (18 screens)
+- Fun hypothesis validation criteria defined
+- Next: Fix build → run game client → execute Session 1
+
+## Session Extract — First Game Launch 2026-08-12 ✅
+- Game client RUNS — first in-engine render achieved (addresses gate blocker B3)
+- Files created: src/game/game.go (GameInterface), src/game/title_screen.go (markup UI),
+  src/game/content_db.go (extension-mapped asset DB), kaiju/src/main.marrow.go (getGame),
+  game_content/ (renderer/shaders/fonts/textures/ui copied from engine content)
+- kaiju/src/main.test.go → main.test.go.bak (avoided getGame conflict)
+- Engine go.mod: +require/replace marrow-of-empire
+- Title screen verified: soot backdrop #141210, bone-ivory title #E9E6DC, ink buttons —
+  1054 unique colors, art bible palette exact match, screenshot saved to
+  production/qa/evidence/screenshots/title-screen-2026-08-12.png
+- Makefile: build-standalone / run-standalone targets (debug,ai_driver tags)
+- Key lessons: ContentDatabase must be non-nil; engine content needs extension mapping;
+  imperative UI Scale doesn't size panels — use markup system; editor runs from kaiju/,
+  standalone from project root
+- Skill created: .claude/skills/first-launch/ — full bootstrap workflow + failure catalog
+- Next: playtest Session 1 can now run against the real client
+
 ## Current Task
 
 - **Sprint 2 planned**: Camera System & Infrastructure Remediation (2026-08-11 to 2026-08-17)
@@ -454,3 +668,173 @@ Task: QA plan written, ready for implementation
 - Not verified: in-engine rendering (screenshot evidence pending — Kaiju UI risk HIGH: duplicated-cell click binding, Input onchange/onkeyup, overflow:scroll, grid-template-columns)
 - Blockers: None
 - Next: /code-review src/character_sheet/inventory.go then /story-done story-005; note Item component change needs pod serialization sanity check for old saves (ADR-0002)
+
+## Session Extract — /dev-story 2026-08-11
+- Story: production/epics/main-menu-settings/story-001-navigation-transition-framework.md — Navigation Accessibility & Screen Transition Framework
+- Agent: ui-programmer (background — agentId: a4571d804eb25a31d)
+- Files expected: src/main_menu/ (screen_flow.go, focus_manager.go, transition_system.go, etc.), tests/unit/main_menu/navigation_transitions_test.go
+- Blockers: None
+- Next: /code-review src/main_menu/ then /story-done story-001
+
+## Session Extract — /story-done 2026-08-11
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/main-menu-settings/story-001-navigation-transition-framework.md — Navigation Accessibility & Screen Transition Framework
+- Implementation: src/ui/mainmenu/ (8 files), tests/unit/main_menu/navigation_transitions_test.go (39 tests)
+- Code review: APPROVED (2 bugs fixed, Dispatch refactored)
+- Tech debt logged: None
+- Advisory: Manual evidence file deferred until Story 002
+- Next recommended: Story 002 — Title Screen & New Game Flow (now unblocked)
+
+## Session Extract — /dev-story 2026-08-11
+- Story: production/epics/main-menu-settings/story-002-title-screen-new-game-flow.md — Title Screen & New Game Flow
+- Agent: ui-programmer (background — agentId: aa4c37063e937560b)
+- Files expected: src/ui/mainmenu/title_screen.go, tests/unit/main_menu/title_screen_test.go
+- Depends on: Story 001 (Complete ✅) — builds on ScreenController, FocusManager, TransitionSystem
+- Blockers: None
+- Next: /code-review src/ui/mainmenu/title_screen.go then /story-done story-002
+
+## Session Extract — /story-done 2026-08-11
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/main-menu-settings/story-002-title-screen-new-game-flow.md — Title Screen & New Game Flow
+- Implementation: src/ui/mainmenu/title_screen.go (602 lines), tests/unit/main_menu/title_screen_test.go (590 lines, 18 tests)
+- Code review: APPROVED (no required changes)
+- Tech debt logged: None
+- Advisory: Manual evidence file deferred (same as Story 001)
+- Next recommended: Story 003 — First-Launch Accessibility Prompt (now unblocked)
+
+## Session Extract — /dev-story 2026-08-11
+- Story: production/epics/main-menu-settings/story-003-first-launch-accessibility-prompt.md — First-Launch Accessibility Prompt
+- Agent: ui-programmer (background — agentId: a05038d41835c618e)
+- Files expected: src/ui/mainmenu/accessibility_prompt.go, tests/unit/main_menu/accessibility_prompt_test.go
+- Depends on: Story 001 (Complete ✅), Story 002 (Complete ✅) — uses SetInteractive hook
+- Blockers: None
+- Next: /code-review src/ui/mainmenu/accessibility_prompt.go then /story-done story-003
+
+## Session Extract — /story-done 2026-08-11
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/main-menu-settings/story-003-first-launch-accessibility-prompt.md — First-Launch Accessibility Prompt
+- Implementation: src/ui/mainmenu/accessibility_prompt.go (512 lines), src/ui/mainmenu/screen_flow.go (refactored), tests/unit/main_menu/accessibility_prompt_test.go (13 tests)
+- Code review: APPROVED (no required changes)
+- Tech debt logged: None
+- Advisory: Manual evidence file deferred (same as Stories 001-002)
+- Next recommended: Story 004 — Save/Load Screens (Integration, depends on Story 001 ✅ + Save/Load System)
+
+## Session Extract — /dev-story 2026-08-12
+- Story: production/epics/main-menu-settings/story-004-save-load-screens.md — Save/Load Screens
+- Agent: ui-programmer (background — agentId: abc5a37b37201fa4a)
+- Type: Integration (BLOCKING test requirement)
+- Files expected: src/ui/mainmenu/save_load_screen.go, tests/integration/main_menu/save_load_screens_test.go
+- Depends on: Story 001 (Complete ✅), Save/Load System (external — stubbed data contract)
+- Blockers: None
+- Next: /code-review src/ui/mainmenu/save_load_screen.go then /story-done story-004
+
+## Session Extract — /architecture-review 2026-08-12 (Review #2)
+- Verdict: CONCERNS
+- Requirements: 263 total — 222 covered, 0 partial, 41 gaps (incl. 17 gated behind Proposed ADRs)
+- New TR-IDs registered: 0 (registry already complete)
+- Registry updates: TR-ai-006..011/013 → ADR-0008 (revision verified in body); TR-save-009 conflict resolved (ADR-0002 amended); Audio/Loot TRs → ADR-0014/0015 (Proposed)
+- GDD revision flags: save-load-system.md CR-4 (camera persistence — ADR amended, GDD pending), ai-dialogue-engine.md (registry synced)
+- Top ADR gaps: Party System ADR (6 TRs), Faction System ADR (3 TRs), Map System ADR (2 TRs)
+- Report: docs/architecture/architecture-review-2026-08-12b.md
+
+## Session Extract — /dev-story 2026-08-12
+- Story: production/epics/persistent-world-state/story-004-clue-path-protection.md — Clue-Path Protection
+- Agent: gameplay-programmer (background, resumed 3× for gap-fix: missing deliverables, then 3 failing tests)
+- Type: Integration (BLOCKING test requirement)
+- Files changed: src/persistent_world_state/clue_path_protection.go (created), src/persistent_world_state/flag_store.go (tombstone storage + EntityRegion getter), src/persistent_world_state/event_pipeline.go (RecordDestructionEvent), tests/integration/persistent_world_state/clue_path_test.go (created, 17 tests)
+- Design deviations (user-approved via AskUserQuestion): PWS-owned quest-relevance registry (not Persistent-component read — EF purges components before entity.destroyed); tombstone flag storage for destroyed entities (Story 006 will serialize); RecordDestructionEvent as destroyed-target pipeline path; clue_path_protection entries marked Protected:true
+- Tests: 65/65 pass (33 integration + 32 unit PWS); src go build clean. Pre-existing unrelated failures exist in tests/unit/entity (flaky) and tests/integration/main_menu (keybindings) — neither imports persistent_world_state
+- Blockers: None
+- Next: /code-review src/persistent_world_state/clue_path_protection.go src/persistent_world_state/flag_store.go src/persistent_world_state/event_pipeline.go then /story-done production/epics/persistent-world-state/story-004-clue-path-protection.md
+
+## Session Extract — /test-setup 2026-08-12
+- Verdict: COMPLETE — infrastructure already existed (scaffolded 2026-08-09); verification + hardening pass
+- Fixed: .github/workflows/test.yml missing CGO_ENABLED: 1 (tests import kaijuengine.com — CI would fail); tests/README.md CI path corrected (tests.yml → test.yml)
+- Pre-gate checklist now fully green: tests/unit+integration ✅, CI workflow ✅, accessibility-requirements ✅, interaction-patterns ✅
+
+## Session Extract — /clear mid-Story-007 2026-08-12
+- Epic: main-menu-settings — Stories 001-006 COMPLETE, 007 in progress
+- Story 007: Keybindings & Input Remapping — ui-programmer agent (agentId: ad316c9261196527d) resumed in background, mid-debug
+- Last known state: tests failing on focus ID mismatch (test hardcoded "kb-row-move-forward-primary" with hyphens; impl registers "kb-row-move_forward-primary" with underscores) + ParseChord key-name validation issue
+- Files: src/ui/mainmenu/keybindings_screen.go exists; tests/integration/main_menu/keybindings_test.go exists (24 tests, failing)
+- Modifications pending verification: binding_registry.go (BindSlot/ClearSlot/BindingCount), screen_flow.go (ScreenKeybindings state), settings_screen.go (ControlNavigate + placeholder removal)
+- Test status at last check: unit 70+ PASS, integration keybindings 20+ FAIL
+- Next: wait for agent completion notification, verify tests pass, then /code-review + /story-done for story 007 (final epic story)
+
+## Session Extract — ADR acceptance + Party ADR 2026-08-12
+- ADR-0014 (Audio System): Proposed → Accepted (verified: all 13 sections present)
+- ADR-0015 (Loot & Economy): Proposed → Accepted (verified: all 13 sections present)
+- ADR-0016 (Party System): CREATED (Proposed) — covers TR-party-001 through TR-party-007
+  - Resolves design gaps T0-2 (interjection interface → ADR-0008 amendment required) and T0-3 (knockout state → ADR-0009 amendment required)
+- TR registry v4: party TRs → ADR-0016 (Proposed); (Proposed) markers removed from audio/loot/combat entries
+- Coverage now: 247/263 (93.9%) covered by Accepted ADRs, 6 partial (ADR-0016 Proposed), 10 gaps
+- Remaining gaps: PWS (2), Camera 3D audio (1), Stats cross-system (1), AI-019 open question (1), Faction (3), Map (2)
+
+## Session Extract — /story-done 2026-08-12
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/persistent-world-state/story-004-clue-path-protection.md — Clue-Path Protection
+- Tech debt logged: 4 items (reverse-index staleness, GetEntries since=0, silent region-miss, QA coverage gaps) → docs/tech-debt-register.md
+- Code review: APPROVED WITH SUGGESTIONS (W1–W3 + 5 QA gaps)
+- Next recommended: production/epics/persistent-world-state/story-005-world-evolution-rules.md (Ready)
+
+<!-- QA-PLAN: 2026-08-13 | System: sprint-6 | Plan written: production/qa/qa-plan-sprint-6-2026-08-13.md -->
+
+## Session Extract — /dev-story MMS-007 2026-08-13
+- Story: production/epics/main-menu-settings/story-007-keybindings-input-remapping.md — Keybindings & Input Remapping (finish of in-flight work)
+- Verdict: implementation verified — make test-all green (30/30 packages), go build + go vet clean in ./src
+- Root cause: focus IDs registered snake_case (kb-row-move_forward-primary) vs kebab-case click contract (kb-row-move-forward-primary) → FocusManager.ActivateAt never matched; plus ParseChord accepted "???" as valid key (AC-8)
+- Files changed: src/ui/mainmenu/keybindings_screen.go (bindingFocusID() kebab mapping + ParseChord validKeyName() tightening); tests/integration/main_menu/keybindings_test.go (2 test fixes: label map key direction, gamepad preset test missing navigateToKeybindings)
+- Tests: 24/24 pass in main_menu integration; AC-1..AC-8 all mapped
+- Agent note: story cites TR-ui-007 (accessibility) but keybinding requirement text lives in TR-menu-005 — registry re-reference follow-up suggested
+- Next: /code-review keybindings files then /story-done production/epics/main-menu-settings/story-007-keybindings-input-remapping.md
+
+## Session Extract — /code-review MMS-007 2026-08-13
+- Review: 3 specialists (lead-programmer, ux-designer, qa-tester) — initial verdict CHANGES REQUIRED
+- Blocking fixed (2 rounds): (1) restore path conflict resolution incl. loop-clear both slots + AC-6 gate + fixpoint restore-all; (2) "Unbound" persistence token (SettingUnboundValue) so cleared slots survive reboot; (3) reserved-key dialog keyboard routing (consume only Escape); + blockedMsg clearing, validKeyName spaces, gofmt, zz_debug_test.go deleted
+- Tests: 34 pass in main_menu integration (-count=1 green); 5 new pinning tests + 1 discriminating replace + 2 updates
+- Re-review verdict: APPROVED WITH SUGGESTIONS — suggestions logged for /story-done (amber text vs manifest, arrow-nav grid, FocusID suffix contract, focus jump, motion pulse, preset cycling, IBS scope overlap, sticky modifiers)
+- Pre-existing flake surfaced: tests/unit/entity TestSpatialQueryPerformance fails under full sweep only (passes standalone x2) — separate tech debt
+- Next: /story-done production/epics/main-menu-settings/story-007-keybindings-input-remapping.md
+
+## Session Extract — /story-done MMS-007 2026-08-13
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/main-menu-settings/story-007-keybindings-input-remapping.md — Keybindings & Input Remapping
+- Criteria: 8/8 auto-verified; 34 integration tests green; code review APPROVED WITH SUGGESTIONS (user-confirmed)
+- Tech debt logged: 12 items (TR-menu-005 re-reference, amber-text vs manifest, IBS scope overlap, render contract, arrow-nav grid, focus jump, motion pulse, preset cycling, sticky modifiers, Bind/Unbind slot model, HandleKey adapter contract, entity perf flake)
+- Sprint 6 must-haves remaining: DIALOGUE-UI-001 (in-progress), PWS-005 (ready), PARTY-001 (ready), PRC-001 (ADR-0016 acceptance)
+- Next recommended: DIALOGUE-UI-001 finish or PARTY-001 via /dev-story
+
+## Session Extract — /story-done PARTY-001 2026-08-13
+- Verdict: COMPLETE WITH NOTES
+- Story: production/epics/party-system/story-001-party-roster-active-slots.md — Party Roster & Active Slots
+- Criteria: 5/5 + edge auto-verified; 42 tests green; code review APPROVED WITH SUGGESTIONS (self-swap guard + 10 test items fixed)
+- Tech debt logged: 6 items (ADR-0016 conflict → PRC-001, save-snapshot wiring → INT-6/7, dead config fields, AddToPool existence check, Swap reorder event, capacity-not-serialized)
+- Also fixed this session: perf-flake thresholds (entity + ai_dialogue) — full sweep now deterministic 37/37; unused import in game.go removed
+- Integration pass: INT-5..INT-10 planned, story files for INT-5..8 written, sprint-6.md + yaml updated
+- Next: INT-5 (main-menu-settings/story-008-game-layer-wiring.md) — /dev-story
+
+## Session Extract — пак озвучки 2026-11-04
+- Задача: пользователь попросил диалоги между главными персонажами для самостоятельной записи озвучки
+- Обнаружено: арт-библия уже готова (AD-ART-BIBLE одобрен 2026-08-10); папки `design/narrative/` не было; именованных игрока/спутников нет — использован существующий пограничный каст из `.kg`-файлов
+- Результат: `design/narrative/dialogue/vo-scenes/` — 3 сцены / 72 реплики / ~6 минут, Век + Томас + Мира, цепочка расследования (руда → затопление → плита → Первый Кузнец); v1.1 — русская версия
+  - `investigation-chain-vo-pack.md` — сценарий, связь с каноном, гид для одного исполнителя (постановка голоса, порядок записи, чек-лист непрерывности)
+  - `lines-vek.md` / `lines-tomas.md` / `lines-mira.md` — тексты по персонажам с подсказками (23/24/25 реплик)
+  - `recording-manifest.csv` — 72 строки: VO ID, имена файлов, подсказки, ключевые реплики, колонка `дубль_кипер`
+  - `teleprompter.html` — автономный телепромптер: стрелки/пробел, фильтры 1–3, подсказка `c`, полный экран `f`, размер текста +/−
+  - `audacity-recording-checklist.md` — пошаговая запись в Audacity: настройки, метки, Export Multiple, сверка с манифестом, типичные проблемы
+- Якоря канона: `vek_ore_gone_wrong`, `vek_miner_gone_quiet`, `vek_forgemaster_oath`, `tomas_flood_not_rain`, `tomas_slab_hidden`, `tomas_lied_to_smith`, `mira_script_two_purposes`, `mira_smelting_formula`, `mira_stone_still_warm`
+- Статус: одобрено к записи; конфликтов с каноном `.kg` нет; пользователь озвучивает все три роли
+- Далее: запись (~2–2.5 часа). Возможные продолжения: интеграция озвучки в диалоговый UI, новые сцены/каст (Халла, Грета, Орин, Марен, Верен), оформление нарративных документов
+
+## Session Extract — озвучка: запись и сборка 2026-11-05
+- Записаны все реплики S01+S02: Век 11 · Томас S01 11 · Томас S02 13 · Мира S02 13 (всего 48)
+- Источник: `~/vo/marrow/2026-11-04/marrow-vo.aup3` (Audacity, проект открыт во время обработки — снимок делался через SQLite backup)
+- **Ключевой урок извлечения AUP3:** старт клипа хранится в поле `0a 23` **перед** именем клипа. Чтение поля после имени даёт старт следующего клипа — все реплики сдвигаются на одну. Исправлено и проверено по меткам/длительностям.
+- Обработка: 48 кГц / 24 бит / моно; high-pass 80 Гц; afftdn 10 дБ / −40 dBFS; обрезка только ведущей тишины 150 мс; концы фраз полностью сохранены; фейды 5/10 мс; двухпроходный loudnorm −18 LUFS / TP −2 dBTP
+- Концевые щелчки мыши (10–15 мс в последних 250 мс) удалены кроссфейдом; повторная проверка — 0 остатков
+- Файлы: `~/vo/marrow/2026-11-04/{vek-s01,tomas-s01,tomas-s02,mira-s02}-{raw,processed}/`; в `*-raw/` исходники со щелчками (архив)
+- Диалоги: `~/vo/marrow/2026-11-04/dialogues/` — `s01-dialogue.wav` 2:06, `s02-dialogue.wav` 2:21, `marrow-s01-s02-dialogue.wav` 4:28 + `*-manifest.txt`
+- Отчёты: `mira-s02-processing-report.md`, `s01-s02-processing-report.md`
+- Клиппинг в исходниках (переписать при возможности): `S02-TOMAS-014` 0.0 dBFS, `S01-TOMAS-010` −1.3, `S01-TOMAS-018` −1.5, `S02-TOMAS-004` −1.6, `S01-TOMAS-020` −2.4, `S01-TOMAS-004` −2.6
+- Не закоммичено. Аудио вне репозитория; текстовый пак — `design/narrative/dialogue/vo-scenes/`
+- Далее: интеграция озвучки в диалоговый UI, запись остальных персонажей/сцен, при необходимости — коммит VO-пака

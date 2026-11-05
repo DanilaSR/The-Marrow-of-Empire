@@ -1,0 +1,378 @@
+<!--
+  The Marrow of Empire — Combat HUD (Story 001: Combat HUD Framework &
+  Turn Order; Story 002: AP Meter, Ability Menu & End Turn)
+  Kaiju Engine UI (HTML/CSS-like markup, no JS runtime).
+  Loaded via markup.DocumentFromHTMLAsset. Visibility, turn-order chips,
+  highlight state, the AP meter, ability slot states, and paper-slide
+  motion are driven from Go (src/ui/combat_hud) — the Kaiju CSS engine has
+  no transitions, so the HUD's Go driver animates translateY/border-color
+  and the AP fill width/glow opacity per frame.
+
+  Register: Field (ADR-0012) — panel umber combat chrome, world undimmed.
+  Motion: paper-slide only — enter 200ms ease-out, exit 200ms; no bounce,
+  scale, spin, or flip (TR-ui-004). The desk never trembles: this UI
+  renders on the UI orthographic camera, immune to world camera shake.
+
+  Art bible palette (Section 2.4 / 6.6):
+    Panel umber #2E2820 | Soot #141210 | Ink #1C1813 | Parchment #E3D5B0
+    Amber #D4A040 / #D9A441 | Oxblood #7A2E28
+
+  TODO(font): font-family is the engine default grotesque sans
+  (OpenSans-Regular, OFL). Swap for the baked combat face (grotesque sans,
+  tabular figures) when technical-artist ships the font binaries
+  (TR-ui-005, ADR-0012 Typography).
+  TODO(art): portrait chips render as soot placeholders; painted portrait
+  art binds as an Image child when available (art-director).
+  TODO(localization): all player-facing strings are placeholders pending
+  the localization system.
+-->
+<style>
+  /* Root: transparent, world stays live behind the HUD (Field register —
+     no dimming). */
+  .hud-root {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .top-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 0 16px;
+    background-color: #2E2820; /* panel umber */
+    border-bottom: 1px solid rgba(28, 24, 19, 0.40);
+    z-index: 10;
+  }
+
+  .portrait-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    height: fit-content;
+  }
+
+  /* Portrait chip: rounded-square soot frame (portrait art placeholder).
+     Current turn: amber border, full opacity. Upcoming: dimmed. Acted:
+     further dimmed (AC-1, AC-3). State classes are mutually exclusive and
+     managed Go-side via document.SetElementClasses. */
+  .portrait-chip {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #6E6350; /* umber border (highlight cross-fade target) */
+    border-radius: 4px;
+    background-color: #141210; /* soot */
+  }
+
+  /* Hidden template: cloned per combatant at CombatStarted. */
+  .portrait-template {
+    display: none;
+  }
+
+  .portrait-chip.portrait-current {
+    border-color: #D4A040; /* amber — current turn highlight */
+    background-color: #1C1813; /* ink */
+  }
+
+  .portrait-chip.portrait-upcoming {
+    opacity: 0.5;
+  }
+
+  .portrait-chip.portrait-acted {
+    opacity: 0.35;
+  }
+
+  /* Initiative number: combat face domain (tabular figures critical —
+     TODO(font) tabular figure face). Amber on soot/umber is accent on
+     field, permitted; amber-on-parchment remains forbidden. */
+  .portrait-init {
+    font-size: 12px;
+    color: #D9A441;
+    font-family: "OpenSans-Regular";
+  }
+
+  .bottom-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 96px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 0 16px;
+    background-color: #2E2820; /* panel umber */
+    border-top: 1px solid rgba(28, 24, 19, 0.40);
+    z-index: 10;
+  }
+
+  /* ── AP meter (Story 002, AC-1/AC-5) ──────────────────────────────
+     Bottom-left: numeric readout adjacent to the amber fill track. The
+     fill width and glow opacity are driven per frame from Go — the
+     Kaiju CSS engine has no transitions, and its box-shadow property is
+     unimplemented (verified in the pinned engine source), so the AC-5
+     amber pulse is a glow overlay (ap-glow) whose opacity follows the
+     pulse tween. */
+  .ap-meter {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    margin-right: 16px;
+    width: fit-content;
+    height: 28px;
+  }
+
+  /* Readout: combat face domain (tabular figures critical — TODO(font)).
+     Parchment on panel umber (amber-on-parchment stays forbidden). */
+  .ap-text {
+    width: 56px;
+    font-size: 13px;
+    color: #E3D5B0;
+    font-family: "OpenSans-Regular";
+    text-align: center;
+  }
+
+  .ap-fill-track {
+    position: relative;
+    width: 180px;
+    height: 16px;
+    background-color: #141210; /* soot well */
+    border: 1px solid rgba(28, 24, 19, 0.60);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .ap-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0%; /* fill fraction, driven Go-side */
+    background-color: #D4A040; /* amber fill */
+  }
+
+  .ap-glow {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    background-color: #D9A441; /* bright amber — pulse overlay */
+    opacity: 0; /* pulse strength, driven Go-side */
+  }
+
+  /* ── Action bar (Story 002, AC-2) ──────────────────────────────────
+     Bottom-center: six ability slots — Move [1], Attack [2], Abilities
+     [3], Items [4], Defend [5], Wait [6]. Pen-and-ink icon placeholders
+     (umber squares, TR-ui-003 — TODO(art): painted glyphs); hotkey badge
+     and AP cost in combat face. Hidden off player turns; disabled and
+     selected states are class-managed Go-side (AC-3, AC-4). */
+  .ability-row {
+    display: none; /* shown Go-side on player turns */
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    margin: 0 auto;
+    width: fit-content;
+    height: fit-content;
+  }
+
+  .ability-slot {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #1C1813; /* ink */
+    border: 1px solid #6E6350; /* umber border */
+    border-radius: 4px;
+  }
+
+  .ability-icon {
+    width: 24px;
+    height: 24px;
+    background-color: #6E6350; /* umber square — pen-and-ink placeholder */
+  }
+
+  .ability-hotkey {
+    position: absolute;
+    top: 3px;
+    left: 5px;
+    font-size: 10px;
+    color: #D9A441; /* amber accent on field */
+    font-family: "OpenSans-Regular";
+  }
+
+  .ability-cost {
+    position: absolute;
+    bottom: 2px;
+    right: 5px;
+    font-size: 10px;
+    color: #E3D5B0; /* parchment on field */
+    font-family: "OpenSans-Regular";
+  }
+
+  /* Greyed out (AC-3): desaturated icon + muted text. The click handler
+     is guarded Go-side too — disabled abilities never select. */
+  .ability-slot.ability-disabled {
+    opacity: 0.35;
+  }
+
+  .ability-slot.ability-disabled .ability-cost {
+    color: #6E6350; /* muted */
+  }
+
+  /* Selected (AC-4): amber highlight outline, pressed face. */
+  .ability-slot.ability-selected {
+    border-color: #D4A040;
+    background-color: #2E2820;
+  }
+
+  /* ── End Turn (Story 002, AC-2/AC-4) ───────────────────────────────
+     Bottom-right: amber fill on umber, prominent — larger than the
+     ability slots. Pen-and-ink icon placeholder (TODO(art): hourglass).
+     TODO(localization): label text. */
+  .end-turn {
+    display: none; /* shown Go-side on player turns */
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 96px;
+    height: 56px;
+    margin-left: 16px;
+    background-color: #D4A040; /* amber fill */
+    border: 1px solid #D9A441;
+    border-radius: 4px;
+  }
+
+  .end-turn-icon {
+    width: 16px;
+    height: 16px;
+    background-color: #141210; /* ink square — pen-and-ink placeholder */
+  }
+
+  .end-turn-label {
+    font-size: 12px;
+    color: #141210; /* ink on amber — never amber-on-parchment */
+    font-family: "OpenSans-Regular";
+    font-weight: bold;
+  }
+
+  /* Hover tooltip: parchment chip with ink text (AC-5). Position (left %)
+     is set Go-side relative to the hovered chip. */
+  .tooltip-chip {
+    position: absolute;
+    top: 72px;
+    left: 4%;
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    background-color: #E3D5B0; /* parchment */
+    border: 1px solid rgba(28, 24, 19, 0.25);
+    z-index: 20;
+  }
+
+  .tooltip-name {
+    font-size: 12px;
+    color: #1C1813; /* ink */
+    font-family: "OpenSans-Regular";
+    font-weight: bold;
+  }
+
+  .tooltip-hp {
+    font-size: 12px;
+    color: #1C1813; /* ink */
+    font-family: "OpenSans-Regular";
+  }
+</style>
+
+<Panel id="hud-root" class="hud-root">
+  <!-- Turn order bar (Field register, full width, top edge) -->
+  <Panel id="top-bar" class="top-bar">
+    <Panel id="portrait-row" class="portrait-row">
+      <!-- Clone template: duplicated once per combatant in initiative
+           order at CombatStarted. Ids on clones are set Go-side; the
+           inner label has no id (resolved by traversal). -->
+      <Panel id="portrait-template" class="portrait-chip portrait-template">
+        <Label class="portrait-init">0</Label>
+      </Panel>
+    </Panel>
+  </Panel>
+
+  <!-- Bottom bar (Story 002): AP meter (bottom-left), ability menu
+       (bottom-center), End Turn (bottom-right). All state — fill width,
+       readout text, visibility, slot classes — is driven Go-side. -->
+  <Panel id="bottom-bar" class="bottom-bar">
+    <!-- AP meter: numeric readout adjacent to the amber fill track. -->
+    <Panel id="ap-meter" class="ap-meter">
+      <Label id="ap-text" class="ap-text">0 / 0</Label>
+      <Panel id="ap-fill-track" class="ap-fill-track">
+        <Panel id="ap-fill" class="ap-fill"></Panel>
+        <Panel id="ap-glow" class="ap-glow"></Panel>
+      </Panel>
+    </Panel>
+
+    <!-- Ability menu: six slots, hotkey badge + AP cost labels populated
+         Go-side from the action bar table (markup keeps placeholders). -->
+    <Panel id="ability-row" class="ability-row">
+      <Panel id="ability-1" class="ability-slot">
+        <Panel class="ability-icon"></Panel>
+        <Label id="ability-hotkey-1" class="ability-hotkey">1</Label>
+        <Label id="ability-cost-1" class="ability-cost">1</Label>
+      </Panel>
+      <Panel id="ability-2" class="ability-slot">
+        <Panel class="ability-icon"></Panel>
+        <Label id="ability-hotkey-2" class="ability-hotkey">2</Label>
+        <Label id="ability-cost-2" class="ability-cost">2</Label>
+      </Panel>
+      <Panel id="ability-3" class="ability-slot">
+        <Panel class="ability-icon"></Panel>
+        <Label id="ability-hotkey-3" class="ability-hotkey">3</Label>
+        <Label id="ability-cost-3" class="ability-cost">1-3</Label>
+      </Panel>
+      <Panel id="ability-4" class="ability-slot">
+        <Panel class="ability-icon"></Panel>
+        <Label id="ability-hotkey-4" class="ability-hotkey">4</Label>
+        <Label id="ability-cost-4" class="ability-cost">1</Label>
+      </Panel>
+      <Panel id="ability-5" class="ability-slot">
+        <Panel class="ability-icon"></Panel>
+        <Label id="ability-hotkey-5" class="ability-hotkey">5</Label>
+        <Label id="ability-cost-5" class="ability-cost">1</Label>
+      </Panel>
+      <Panel id="ability-6" class="ability-slot">
+        <Panel class="ability-icon"></Panel>
+        <Label id="ability-hotkey-6" class="ability-hotkey">6</Label>
+        <Label id="ability-cost-6" class="ability-cost">0</Label>
+      </Panel>
+    </Panel>
+
+    <!-- End Turn: amber, prominent, bottom-right. -->
+    <Panel id="end-turn" class="end-turn">
+      <Panel class="end-turn-icon"></Panel>
+      <Label id="end-turn-label" class="end-turn-label">End Turn</Label>
+    </Panel>
+  </Panel>
+
+  <!-- Combatant hover tooltip (AC-5): name + HP in combat face -->
+  <Panel id="tooltip" class="tooltip-chip">
+    <Label id="tooltip-name" class="tooltip-name"></Label>
+    <Label id="tooltip-hp" class="tooltip-hp"></Label>
+  </Panel>
+</Panel>
